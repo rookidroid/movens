@@ -164,6 +164,22 @@ static void handleConfig(AsyncWebServerRequest* request,
   sendOk(request);
 }
 
+// GET /config  →  speed / accel of all joints
+static void handleConfigGet(AsyncWebServerRequest* request) {
+  String json = "{";
+  for (int j = 1; j <= NUM_STEPPERS; j++) {
+    json += "\"j" + String(j) + "\":{";
+    json += "\"speed\":"  + String(jointSpeed(j));
+    json += ",\"accel\":" + String(jointAccel(j));
+    json += "}";
+    if (j < NUM_STEPPERS) json += ",";
+  }
+  json += "}";
+  AsyncWebServerResponse* resp = request->beginResponse(200, "application/json", json);
+  addCors(resp);
+  request->send(resp);
+}
+
 // POST /stop  →  stop all motors immediately
 static void handleStop(AsyncWebServerRequest* request) {
   enqueueCommand(CMD_STOP);
@@ -327,6 +343,7 @@ void setupWebServer() {
   server.on("/app.js",    HTTP_GET, handleAppJs);
   server.on("/status",    HTTP_GET, handleStatus);
   server.on("/calib",     HTTP_GET, handleCalibGet);
+  server.on("/config",    HTTP_GET, handleConfigGet);
 
   // POST endpoints without a body
   server.on("/stop", HTTP_POST, handleStop);

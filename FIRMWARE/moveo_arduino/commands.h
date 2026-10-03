@@ -37,5 +37,9 @@ void enqueueCommand(CmdType type, int joint = 0, int32_t val1 = 0, int32_t val2 
 // start and finish together. Same queueing rules as enqueueCommand().
 void enqueueMoveSync(const int32_t targets[NUM_STEPPERS]);
 
+// Speed (steps/s) and acceleration (steps/s²) last set through CMD_CONFIG.
+uint32_t jointSpeed(int joint);
+uint32_t jointAccel(int joint);
+
 // Drain the queue and execute every pending command. Call from loop() only.
 void processCommands();

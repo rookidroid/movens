@@ -24,6 +24,9 @@ void setupCommandQueue() {
   }
 }
 
+uint32_t jointSpeed(int joint) { return cfgSpeed[joint]; }
+uint32_t jointAccel(int joint) { return cfgAccel[joint]; }
+
 void enqueueCommand(CmdType type, int joint, int32_t val1, int32_t val2) {
   Command cmd = {type, joint, val1, val2};
   xQueueSend(cmdQueue, &cmd, 0);

@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-/* Joint control page, served at /.
+/* Control page, served at /.
    Included only by web_server.cpp. */
 static const char INDEX_HTML[] PROGMEM = R"rawhtml(
 <!DOCTYPE html>
@@ -13,234 +13,408 @@ static const char INDEX_HTML[] PROGMEM = R"rawhtml(
 <title>Moveo Control</title>
 <link rel="stylesheet" href="/app.css"/>
 </head>
-<body>
+<body data-page="control">
+<header class="appbar" id="appbar"></header>
 
-<h1>&#129470; Moveo Control</h1>
-<p class="subtitle">
-  <span class="conn-dot" id="dot"></span>
-  <span id="conn-status">Connecting…</span> &bull; 192.168.4.1
-</p>
-<nav class="nav">
-  <a href="/" class="active">Control</a>
-  <a href="/calibrate">Calibration</a>
-</nav>
+<main class="layout control">
 
-<div class="top-bar">
-  <button class="btn-danger" id="btnStop" onclick="stopAll()">&#9632; EMERGENCY STOP</button>
-  <button class="btn-home"   id="btnHome" onclick="homeAll()">&#8962; Home All</button>
-</div>
-
-<div class="card cart-card">
-  <div class="card-title">Cartesian <span class="badge stepper">inverse kinematics</span></div>
-  <div class="pos-display small" id="pos-cart">—</div>
-  <div>
-    <label>Tool target (mm, &deg;) &mdash; pitch &minus;90 points down; leave yaw empty to stay in the arm plane</label>
-    <div class="cart-grid">
-      <div><label>X</label><input type="number" id="cart-x" value="300" step="any"/></div>
-      <div><label>Y</label><input type="number" id="cart-y" value="0" step="any"/></div>
-      <div><label>Z</label><input type="number" id="cart-z" value="200" step="any"/></div>
-      <div><label>Pitch</label><input type="number" id="cart-pitch" value="-90" step="any"/></div>
-      <div><label>Yaw</label><input type="number" id="cart-yaw" placeholder="auto" step="any"/></div>
+  <div class="side">
+  <!-- 01 · Arm state -->
+  <section class="card area-state">
+    <div class="card-head">
+      <span class="idx">01</span><h2>Arm state</h2><span class="spacer"></span>
+      <button class="btn sm" id="btnOrigin" title="Move every joint to its origin (0 steps)">&#8853; Go to origin</button>
     </div>
-    <div class="chips">
-      <button class="btn-primary"   onclick="cartGo(false)">&#8594; Go</button>
-      <button class="btn-secondary" onclick="cartGo(true)">Preview</button>
-      <button class="btn-secondary" onclick="cartFill()">Fill from current</button>
+    <div class="card-body">
+      <div class="pose">
+        <div class="tile"><span class="k"><b class="ax-x">X</b>mm</span><span class="v" id="p-x">—</span></div>
+        <div class="tile"><span class="k"><b class="ax-y">Y</b>mm</span><span class="v" id="p-y">—</span></div>
+        <div class="tile"><span class="k"><b class="ax-z">Z</b>mm</span><span class="v" id="p-z">—</span></div>
+        <div class="tile"><span class="k"><b class="ax-p">PITCH</b>&deg;</span><span class="v" id="p-pitch">—</span></div>
+        <div class="tile"><span class="k"><b class="ax-p">YAW</b>&deg;</span><span class="v" id="p-yaw">—</span></div>
+      </div>
+      <div class="notice" id="pose-off" hidden>
+        Tool position is unknown until J1&ndash;J5 are calibrated. <a href="/calibrate">Open calibration &rarr;</a>
+      </div>
+      <div class="jlist" id="jlist"></div>
     </div>
-    <div class="fit" id="cart-sol"></div>
+  </section>
+
+  <!-- 03 · Gripper -->
+  <section class="card area-grip">
+    <div class="card-head">
+      <span class="idx">03</span><h2>Gripper &middot; J6 servo</h2><span class="spacer"></span>
+      <span class="big" id="servo-val">1500</span><span class="unit">&micro;s</span>
+    </div>
+    <div class="card-body">
+      <div>
+        <input type="range" id="servo" min="700" max="2300" step="10" value="1500" aria-label="Gripper pulse width"/>
+        <div class="scale"><span>700</span><span>1100</span><span>1500</span><span>1900</span><span>2300</span></div>
+      </div>
+      <div class="actions fill">
+        <button class="btn" onclick="sendServo(700)">Min</button>
+        <button class="btn ghost" onclick="nudgeServo(-50)">&minus;50</button>
+        <button class="btn" onclick="sendServo(1500)">Center</button>
+        <button class="btn ghost" onclick="nudgeServo(50)">+50</button>
+        <button class="btn" onclick="sendServo(2300)">Max</button>
+      </div>
+    </div>
+  </section>
   </div>
-  <hr class="divider"/>
-  <div>
-    <label>Jog tool (mm or &deg;)</label>
-    <div class="row">
-      <div><input type="number" id="steps-cart" value="10" min="0" step="any"/></div>
-    </div>
-    <div class="chips" id="chips-cart"></div>
-    <div class="jog-grid">
-      <button class="btn-secondary" onclick="cartJog('x',-1)">&minus;X</button>
-      <button class="btn-secondary" onclick="cartJog('x', 1)">+X</button>
-      <button class="btn-secondary" onclick="cartJog('y',-1)">&minus;Y</button>
-      <button class="btn-secondary" onclick="cartJog('y', 1)">+Y</button>
-      <button class="btn-secondary" onclick="cartJog('z',-1)">&minus;Z</button>
-      <button class="btn-secondary" onclick="cartJog('z', 1)">+Z</button>
-      <button class="btn-secondary" onclick="cartJog('pitch',-1)">&minus;Pitch</button>
-      <button class="btn-secondary" onclick="cartJog('pitch', 1)">+Pitch</button>
-    </div>
-  </div>
-</div>
 
-<div class="grid" id="grid"></div>
-<div class="toast" id="toast"></div>
+  <!-- 02 · Motion control -->
+  <section class="card area-ctrl">
+    <div class="card-head"><span class="idx">02</span><h2>Motion control</h2></div>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="tool" onclick="showTab('tool')">Tool &middot; XYZ</button>
+      <button role="tab" data-tab="joints" onclick="showTab('joints')">Joints</button>
+    </div>
+
+    <div class="tabpanel" id="tab-tool" role="tabpanel">
+      <div class="notice" id="tool-lock" hidden>
+        Tool (XYZ) control needs all five joints calibrated. Use the <b>Joints</b> tab meanwhile, or
+        <a href="/calibrate">calibrate &rarr;</a>
+      </div>
+      <fieldset class="fs" id="tool-fs">
+        <div class="sub"><h3>Jog tool</h3><span class="spacer"></span>
+          <span class="lbl">Step</span><div id="seg-cart"></div></div>
+        <div class="jogpad">
+          <div class="padg">
+            <span class="lbl">Plane &middot; top view</span>
+            <div class="dpad">
+              <span></span>
+              <button type="button" class="jbtn" onclick="cartJog('x', 1)"><span class="ax-x">+X</span><small>Fwd</small></button>
+              <span></span>
+              <button type="button" class="jbtn" onclick="cartJog('y', 1)"><span class="ax-y">+Y</span><small>Left</small></button>
+              <div class="dpad-c"><span id="dpad-step">10</span><small>mm&middot;&deg;</small></div>
+              <button type="button" class="jbtn" onclick="cartJog('y',-1)"><span class="ax-y">&minus;Y</span><small>Right</small></button>
+              <span></span>
+              <button type="button" class="jbtn" onclick="cartJog('x',-1)"><span class="ax-x">&minus;X</span><small>Back</small></button>
+              <span></span>
+            </div>
+          </div>
+          <div class="padg">
+            <span class="lbl">Height</span>
+            <div class="vpair">
+              <button type="button" class="jbtn" onclick="cartJog('z', 1)"><span class="ax-z">+Z</span><small>Up</small></button>
+              <button type="button" class="jbtn" onclick="cartJog('z',-1)"><span class="ax-z">&minus;Z</span><small>Down</small></button>
+            </div>
+          </div>
+          <div class="padg">
+            <span class="lbl">Pitch</span>
+            <div class="vpair">
+              <button type="button" class="jbtn" onclick="cartJog('pitch', 1)"><span class="ax-p">+P</span><small>Tip fwd</small></button>
+              <button type="button" class="jbtn" onclick="cartJog('pitch',-1)"><span class="ax-p">&minus;P</span><small>Tip back</small></button>
+            </div>
+          </div>
+        </div>
+
+        <hr class="rule"/>
+
+        <div class="sub"><h3>Go to pose</h3></div>
+        <form class="pform" id="cart-form" onsubmit="event.preventDefault(); cartGo(false)">
+          <label class="field"><span class="ax-x">X</span><span class="inp"><input type="number" id="cart-x" value="300" step="any"/><i>mm</i></span></label>
+          <label class="field"><span class="ax-y">Y</span><span class="inp"><input type="number" id="cart-y" value="0" step="any"/><i>mm</i></span></label>
+          <label class="field"><span class="ax-z">Z</span><span class="inp"><input type="number" id="cart-z" value="200" step="any"/><i>mm</i></span></label>
+          <label class="field"><span>Pitch</span><span class="inp"><input type="number" id="cart-pitch" value="-90" step="any"/><i>&deg;</i></span></label>
+          <label class="field"><span>Yaw</span><span class="inp"><input type="number" id="cart-yaw" placeholder="auto" step="any"/><i>&deg;</i></span></label>
+        </form>
+        <p class="hint">Pitch &minus;90&deg; points the tool straight down. Leave yaw empty to keep the approach in the
+          arm's vertical plane.</p>
+        <div class="actions">
+          <button type="button" class="btn ghost" onclick="cartFill()">Use current</button>
+          <span class="grow"></span>
+          <button type="button" class="btn" onclick="cartGo(true)">Check reach</button>
+          <button type="submit" class="btn primary" form="cart-form">Move &#9656;</button>
+        </div>
+        <div class="result" id="cart-sol"></div>
+      </fieldset>
+    </div>
+
+    <div class="tabpanel" id="tab-joints" role="tabpanel" hidden>
+      <div class="toolbar">
+        <div class="grp"><span class="lbl">Unit</span><div id="seg-unit"></div></div>
+        <div class="grp"><span class="lbl">Step</span><div id="seg-jstep"></div></div>
+      </div>
+      <div class="jctl" id="jctl"></div>
+      <details>
+        <summary>Motion settings</summary>
+        <div class="dbody">
+          <table class="tbl">
+            <thead><tr><th>Joint</th><th>Speed <span class="unit">steps/s</span></th><th>Accel <span class="unit">steps/s&sup2;</span></th></tr></thead>
+            <tbody id="cfg-body"></tbody>
+          </table>
+          <p class="hint">Changed values are outlined. Settings last until the robot restarts.</p>
+          <div class="actions"><span class="grow"></span>
+            <button class="btn ghost" onclick="loadConfig()">Revert</button>
+            <button class="btn primary" onclick="applyConfig()">Apply changes</button>
+          </div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="/app.js"></script>
 <script>
-const JOINTS = [
-  {id:'j1', label:'Joint 1', type:'stepper'},
-  {id:'j2', label:'Joint 2', type:'stepper'},
-  {id:'j3', label:'Joint 3', type:'stepper'},
-  {id:'j4', label:'Joint 4', type:'stepper'},
-  {id:'j5', label:'Joint 5', type:'stepper'},
-  {id:'j6', label:'Hand Servo (J6)', type:'servo'},
-];
+const N = JOINT_NAMES.length;
+let CAL = {};          // /calib reply, keyed 'j1'..'j5'
+let CFG = {};          // /config reply
+let ST = {};           // last /status reply
+let lastPose = null;   // tool pose from the last /status, null if any joint is uncalibrated
+const cal = i => CAL['j' + i];
 
-// ── Build cards ───────────────────────────────────────────────────────────────
-const grid = document.getElementById('grid');
-JOINTS.forEach(j => {
-  if(j.type === 'stepper'){
-    grid.innerHTML += `
-    <div class="card" id="card-${j.id}">
-      <div class="card-title">${j.label} <span class="badge stepper">Stepper</span></div>
-      <div class="pos-display" id="pos-${j.id}">— steps</div>
-      <hr class="divider"/>
-      <div>
-        <label>Move by steps</label>
-        <div class="row">
-          <div><input type="number" id="steps-${j.id}" value="100" min="1"/></div>
-          <button class="btn-primary"   onclick="move('${j.id}', 1)">+ Move</button>
-          <button class="btn-secondary" onclick="move('${j.id}',-1)">&minus; Move</button>
-        </div>
-        <div class="chips">${stepChips(j.id)}</div>
-      </div>
-      <div>
-        <label>Move to absolute position (steps)</label>
-        <div class="row">
-          <div><input type="number" id="abs-${j.id}" value="0"/></div>
-          <button class="btn-primary" onclick="moveTo('${j.id}')">&#8594; Go</button>
-        </div>
-      </div>
-      <div>
-        <label>Move to angle (&deg;) &mdash; needs calibration</label>
-        <div class="row">
-          <div><input type="number" id="ang-${j.id}" value="0" step="any"/></div>
-          <button class="btn-primary" onclick="moveAngle('${j.id}')">&#8594; Go</button>
-        </div>
-      </div>
-      <hr class="divider"/>
-      <div>
-        <label>Configuration</label>
-        <div class="config-row">
-          <div>
-            <label>Speed (Hz)</label>
-            <input type="number" id="speed-${j.id}" value="3000" min="1"/>
-          </div>
-          <div>
-            <label>Accel (steps/s&sup2;)</label>
-            <input type="number" id="accel-${j.id}" value="800" min="1"/>
-          </div>
-          <button class="btn-apply" onclick="applyConfig('${j.id}')">&#10003; Apply</button>
-        </div>
-      </div>
-    </div>`;
-  } else {
-    grid.innerHTML += `
-    <div class="card" id="card-${j.id}">
-      <div class="card-title">${j.label} <span class="badge servo">Servo</span></div>
-      <div class="pos-display" id="pos-${j.id}">— &micro;s</div>
-      <hr class="divider"/>
-      <div>
-        <label>Pulse Width (700 &ndash; 2300 &micro;s)</label>
-        <input type="range" id="slider-j6" min="700" max="2300" value="1500"
-               oninput="updateServoLabel(this.value)" onchange="sendServo(this.value)"/>
-        <div class="servo-val" id="servo-label">1500 &micro;s</div>
-      </div>
-    </div>`;
+// ── Arm state ─────────────────────────────────────────────────────────────────
+$('jlist').innerHTML = JOINT_NAMES.map((n, k) => { const i = k + 1; return `
+  <div class="jrow">
+    <span class="led" id="led-${i}"></span><span class="jtag">J${i}</span><span class="jname">${n}</span>
+    <span class="jang" id="ang-${i}">—</span><span class="jstp" id="stp-${i}">—</span>
+    <div class="meter" id="mtr-${i}"></div>
+  </div>`; }).join('');
+
+// Position of angle a on the joint's min..max scale, in %
+const pct = (c, a) => (a - c.min) / (c.max - c.min) * 100;
+
+function renderMeters(){
+  for(let i = 1; i <= N; i++){
+    const c = cal(i), el = $('mtr-' + i);
+    if(!isCal(c)){
+      el.className = 'meter off';
+      el.innerHTML = 'Not calibrated &middot; <a href="/calibrate">calibrate</a>';
+      continue;
+    }
+    const z = pct(c, 0);
+    el.className = 'meter' + (c.limits ? ' lim' : '');
+    el.title = c.limits ? 'Soft limits enforced' : 'Soft limits off';
+    el.innerHTML = `<div class="trk"></div>` +
+      (z >= 0 && z <= 100 ? `<i class="z" style="left:${z}%"></i>` : '') +
+      `<i class="m" id="mk-${i}" hidden></i>` +
+      `<span class="lo">${fmt(c.min, 0)}&deg;</span><span class="hi">${fmt(c.max, 0)}&deg;</span>`;
   }
+}
+
+// ── Joints tab ────────────────────────────────────────────────────────────────
+const STEP_OPTS = {deg: [0.5, 1, 5, 10, 45], steps: [1, 10, 100, 1000]};
+const jStep = {deg: pref('stepDeg', 5), steps: pref('stepSteps', 100)};
+let unit = pref('unit', 'deg');
+
+const segUnit = seg($('seg-unit'), [['deg', 'DEG'], ['steps', 'STEPS']], unit, v => {
+  unit = v; setPref('unit', v);
+  segJStep.set(STEP_OPTS[v], jStep[v]);
+  renderJointCtl();
+});
+const segJStep = seg($('seg-jstep'), STEP_OPTS[unit], jStep[unit], v => {
+  jStep[unit] = v; setPref(unit === 'deg' ? 'stepDeg' : 'stepSteps', v);
 });
 
-// ── Actions ───────────────────────────────────────────────────────────────────
-const jIndex = id => parseInt(id.replace('j',''));
+// 'deg', 'steps', or null when degrees are selected but the joint is uncalibrated
+const jointUnit = i => unit === 'steps' ? 'steps' : (isCal(cal(i)) ? 'deg' : null);
 
-async function move(id, dir){
-  const steps = parseInt(document.getElementById('steps-'+id).value) * dir;
-  const r = await api('/move', {joint: jIndex(id), steps});
-  if(r){ setConnected(true); showToast(`${id.toUpperCase()} moved ${steps>0?'+':''}${steps} steps`); }
+$('jctl').innerHTML = JOINT_NAMES.map((n, k) => { const i = k + 1; return `
+  <div class="jc" id="jc-${i}">
+    <div class="jc-id">
+      <div class="top"><span class="jtag">J${i}</span><span class="jname">${n}</span></div>
+      <span class="jc-v" id="jcv-${i}">—</span>
+    </div>
+    <button class="btn jog" onclick="jointJog(${i},-1)" aria-label="Jog J${i} negative">&minus;</button>
+    <button class="btn jog" onclick="jointJog(${i}, 1)" aria-label="Jog J${i} positive">+</button>
+    <span class="inp"><input type="number" step="any" id="tgt-${i}" aria-label="J${i} target"
+      onkeydown="if(event.key==='Enter') jointGo(${i})"/><i id="tu-${i}">&deg;</i></span>
+    <button class="btn" onclick="jointGo(${i})">Go</button>
+  </div>`; }).join('');
+
+function renderJointCtl(){
+  for(let i = 1; i <= N; i++){
+    const u = jointUnit(i), row = $('jc-' + i);
+    row.classList.toggle('nocal', !u);
+    row.querySelectorAll('button,input').forEach(e => e.disabled = !u);
+    $('tu-' + i).textContent = u === 'steps' ? 'st' : '°';
+    $('tgt-' + i).placeholder = u ? 'target' : '';
+  }
+  renderJointValues();
 }
 
-async function moveTo(id){
-  const pos = parseInt(document.getElementById('abs-'+id).value);
-  const r = await api('/moveto', {joint: jIndex(id), pos});
-  if(r){ setConnected(true); showToast(`${id.toUpperCase()} → ${pos}`); }
+function renderJointValues(){
+  for(let i = 1; i <= N; i++){
+    const u = jointUnit(i);
+    $('jcv-' + i).textContent =
+      !u ? 'Not calibrated — use steps' :
+      u === 'deg' ? fmt(ST['a' + i]) + '°' : (ST['j' + i] ?? '—') + ' st';
+  }
 }
 
-async function moveAngle(id){
-  const deg = parseFloat(document.getElementById('ang-'+id).value);
-  const r = await api('/moveangle', {joint: jIndex(id), deg});
-  if(r){ showToast(`${id.toUpperCase()} → ${deg}°`); }
+async function jointJog(i, dir){
+  const u = jointUnit(i), step = segJStep.value;
+  const steps = (u === 'deg' ? Math.round(step * cal(i).spd) : step) * dir;
+  if(!steps) return showToast(`Step too small for J${i}`, 'err');
+  await api('/move', {joint: i, steps});
 }
 
-async function applyConfig(id){
-  const speed = parseInt(document.getElementById('speed-'+id).value);
-  const accel = parseInt(document.getElementById('accel-'+id).value);
-  const r = await api('/config', {joint: jIndex(id), speed, accel});
-  if(r){ setConnected(true); showToast(`${id.toUpperCase()} config applied`); }
+async function jointGo(i){
+  const u = jointUnit(i), v = parseFloat($('tgt-' + i).value);
+  if(!Number.isFinite(v)) return showToast(`Enter a J${i} target`, 'err');
+  const r = u === 'deg'
+    ? await api('/moveangle', {joint: i, deg: v})
+    : await api('/moveto', {joint: i, pos: Math.round(v)});
+  if(r) showToast(`J${i} → ` + (u === 'deg' ? fmt(v) + '°' : Math.round(v) + ' st'));
 }
 
-async function homeAll(){
-  const r = await api('/home', {});
-  if(r){ setConnected(true); showToast('Homing all joints…'); }
+// ── Motion settings ───────────────────────────────────────────────────────────
+$('cfg-body').innerHTML = JOINT_NAMES.map((n, k) => { const i = k + 1; return `
+  <tr><td>J${i} <span class="muted">${n}</span></td>
+    <td><input type="number" min="1" id="spd-${i}" oninput="markCfg(${i})"/></td>
+    <td><input type="number" min="1" id="acc-${i}" oninput="markCfg(${i})"/></td></tr>`; }).join('');
+
+async function loadConfig(){
+  const r = await api('/config');
+  if(!r) return;
+  CFG = r;
+  for(let i = 1; i <= N; i++){
+    const c = CFG['j' + i];
+    if(!c) continue;
+    $('spd-' + i).value = c.speed;
+    $('acc-' + i).value = c.accel;
+    markCfg(i);
+  }
 }
 
-function updateServoLabel(v){
-  document.getElementById('servo-label').textContent = v + ' µs';
+// [speed changed, accel changed]
+function cfgChanged(i){
+  const c = CFG['j' + i] || {};
+  return [parseInt($('spd-' + i).value) !== c.speed, parseInt($('acc-' + i).value) !== c.accel];
+}
+function markCfg(i){
+  const [s, a] = cfgChanged(i);
+  $('spd-' + i).classList.toggle('dirty', s);
+  $('acc-' + i).classList.toggle('dirty', a);
 }
 
-async function sendServo(v){
-  const r = await api('/servo', {us: parseInt(v)});
-  if(r){ setConnected(true); showToast('Servo → ' + v + ' µs'); }
+async function applyConfig(){
+  let n = 0;
+  for(let i = 1; i <= N; i++){
+    if(!cfgChanged(i).some(Boolean)) continue;
+    const speed = parseInt($('spd-' + i).value), accel = parseInt($('acc-' + i).value);
+    if(!(speed > 0 && accel > 0)) return showToast(`J${i}: speed and accel must be positive`, 'err');
+    if(!await api('/config', {joint: i, speed, accel})) return;
+    n++;
+  }
+  if(!n) return showToast('No changes to apply');
+  showToast(`Motion settings applied to ${n} joint${n > 1 ? 's' : ''}`);
+  setTimeout(loadConfig, 300);  // the firmware applies them from loop()
 }
 
-// ── Cartesian (IK) ────────────────────────────────────────────────────────────
-let lastPose = null;  // tool pose from the last /status, null if any joint is uncalibrated
-document.getElementById('chips-cart').innerHTML = [1,5,10,50]
-  .map(n => `<button class="chip" onclick="setSteps('cart',${n})">${n}</button>`).join('');
+// ── Tool (Cartesian / IK) ─────────────────────────────────────────────────────
+const segCart = seg($('seg-cart'), [1, 5, 10, 50], pref('cartStep', 10), v => {
+  setPref('cartStep', v); $('dpad-step').textContent = v;
+});
+$('dpad-step').textContent = segCart.value;
 
-const fmtJoints = deg => deg.map((v,i) => `J${i+1} ${v.toFixed(1)}°`).join(' · ');
+const fmtJoints = deg => deg.map((v, i) => `J${i + 1} ${fmt(v)}°`).join('  ');
+function setResult(text, err){
+  const el = $('cart-sol');
+  el.textContent = text;
+  el.className = 'result' + (err ? ' err' : '');
+}
 
 async function cartGo(dry){
   const body = {};
-  for(const k of ['x','y','z','pitch','yaw']){
-    const v = parseFloat(document.getElementById('cart-'+k).value);
+  for(const k of ['x', 'y', 'z', 'pitch', 'yaw']){
+    const v = parseFloat($('cart-' + k).value);
     if(Number.isFinite(v)) body[k] = v;
   }
-  if(!['x','y','z','pitch'].every(k => k in body)) return showToast('Enter X, Y, Z and pitch', 'err');
+  if(!['x', 'y', 'z', 'pitch'].every(k => k in body)) return setResult('Enter X, Y, Z and pitch', true);
   if(dry) body.dry = 1;
   const r = await api('/movepose', body);
-  if(!r) return;
-  document.getElementById('cart-sol').textContent = (dry ? 'Solution: ' : 'Moving to: ') + fmtJoints(r.deg);
-  if(!dry) showToast(`Tool → (${body.x}, ${body.y}, ${body.z}) mm`);
+  if(!r) return setResult('✕ ' + api.lastError, true);
+  setResult((dry ? 'REACHABLE ▸ ' : 'MOVING ▸ ') + fmtJoints(r.deg));
+  if(!dry) showToast(`Tool → X ${body.x}  Y ${body.y}  Z ${body.z}`);
 }
 
 function cartFill(){
-  if(!lastPose) return showToast('Tool pose unknown — calibrate J1–J5', 'err');
-  for(const k of ['x','y','z','pitch']) document.getElementById('cart-'+k).value = lastPose[k].toFixed(1);
-  document.getElementById('cart-yaw').value = '';
+  if(!lastPose) return showToast('Tool position unknown', 'err');
+  for(const k of ['x', 'y', 'z', 'pitch']) $('cart-' + k).value = lastPose[k].toFixed(1);
+  $('cart-yaw').value = '';
+  showToast('Filled in the current tool pose');
 }
 
 // Relative to the current target pose; the approach stays in the arm plane
 async function cartJog(axis, dir){
-  const step = parseFloat(document.getElementById('steps-cart').value);
-  if(!Number.isFinite(step) || step <= 0) return showToast('Enter a jog step', 'err');
-  const r = await api('/movepose', {[axis]: step * dir, rel: 1});
-  if(r){
-    document.getElementById('cart-sol').textContent = 'Moving to: ' + fmtJoints(r.deg);
-    setTimeout(pollStatus, 300);
-  }
+  const r = await api('/movepose', {[axis]: segCart.value * dir, rel: 1});
+  if(r) setResult('MOVING ▸ ' + fmtJoints(r.deg));
+  else  setResult('✕ ' + api.lastError, true);
 }
+
+// ── Gripper ───────────────────────────────────────────────────────────────────
+const sv = $('servo');
+let servoDragging = false;
+sv.addEventListener('input',  () => { servoDragging = true; $('servo-val').textContent = sv.value; });
+sv.addEventListener('change', () => { servoDragging = false; sendServo(+sv.value); });
+
+function setServoUI(v){
+  if(v == null) return;
+  sv.value = v;
+  $('servo-val').textContent = v;
+}
+async function sendServo(v){
+  v = Math.max(700, Math.min(2300, Math.round(v)));
+  setServoUI(v);
+  if(await api('/servo', {us: v})) showToast(`Gripper → ${v} µs`);
+}
+const nudgeServo = d => sendServo(+sv.value + d);
+
+// ── Tabs & origin ─────────────────────────────────────────────────────────────
+function showTab(t){
+  document.querySelectorAll('.tabs [role=tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t));
+  $('tab-tool').hidden   = t !== 'tool';
+  $('tab-joints').hidden = t !== 'joints';
+  setPref('tab', t);
+}
+showTab(pref('tab', 'tool'));
+
+confirmTap($('btnOrigin'), async () => {
+  if(await api('/home', {})) showToast('Moving all joints to origin');
+});
 
 // ── Status rendering (called by pollStatus in app.js) ─────────────────────────
 function onStatus(d){
+  ST = d;
   lastPose = d.x == null ? null : d;
-  document.getElementById('pos-cart').textContent = lastPose
-    ? `X ${d.x.toFixed(1)} · Y ${d.y.toFixed(1)} · Z ${d.z.toFixed(1)} mm · pitch ${d.pitch.toFixed(1)}°`
-    : 'Calibrate J1–J5 to enable';
-  for(let i=1;i<=5;i++){
-    const el = document.getElementById('pos-j'+i);
-    const a  = d['a'+i];
-    if(el) el.textContent = (d['j'+i] ?? '?') + ' steps' + (a == null ? '' : ' · ' + a.toFixed(1) + '°');
+  for(const k of ['x', 'y', 'z', 'pitch', 'yaw']) $('p-' + k).textContent = lastPose ? fmt(d[k]) : '—';
+  $('pose-off').hidden = $('tool-lock').hidden = !!lastPose;
+  $('tool-fs').disabled = !lastPose;
+
+  for(let i = 1; i <= N; i++){
+    const a = d['a' + i], c = cal(i);
+    $('led-' + i).className = 'led' + (d['m' + i] ? ' busy' : '');
+    $('ang-' + i).innerHTML = a == null ? '<span class="badge warn">No cal</span>' : fmt(a) + '<span class="unit">°</span>';
+    $('stp-' + i).textContent = (d['j' + i] ?? '—') + ' st';
+    const mk = $('mk-' + i);
+    if(mk && a != null && c.max > c.min){
+      const p = pct(c, a);
+      mk.hidden = false;
+      mk.style.left = Math.max(0, Math.min(100, p)) + '%';
+      $('mtr-' + i).classList.toggle('over', p < 0 || p > 100);
+    }
   }
-  const sv = document.getElementById('pos-j6');
-  if(sv) sv.textContent = (d.servo ?? '?') + ' µs';
+  renderJointValues();
+  if(!servoDragging) setServoUI(d.servo);
 }
+
+// ── Startup ───────────────────────────────────────────────────────────────────
+async function loadCal(){
+  const r = await api('/calib');
+  if(!r) return;
+  CAL = r;
+  renderMeters();
+  renderJointCtl();
+  if(ST.j1 != null) onStatus(ST);
+}
+renderJointCtl();
+loadCal();
+loadConfig();
 </script>
 </body>
 </html>
