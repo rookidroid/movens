@@ -116,6 +116,10 @@ static const char CALIB_HTML[] PROGMEM = R"rawhtml(
       <li><b>J4 wrist roll:</b> with the forearm horizontal, an inclinometer on the flat face of the gripper
         (level &rarr; vertical).</li>
       <li>Turn in whichever direction is free; the button you press sets which way is positive.</li>
+      <li><b>For Cartesian (IK) control</b> the angles must match the arm model. Arm straight up = all 0&deg;.
+        Positive: J1 counter-clockwise seen from above; J2, J3 and J5 bend forward (toward the reach);
+        J4 right-handed about the forearm (thumb toward the gripper). If the alignment pose isn't straight up,
+        enter its real angle in step 1.</li>
       <li>Calibration is saved on the ESP32 and survives power cycles. The step counter does not: power on with the
         arm on its alignment marks, as before.</li>
     </ul></div>

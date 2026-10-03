@@ -82,6 +82,11 @@ static const char APP_CSS[] PROGMEM = R"rawcss(
         font-size:.72rem;padding:4px 10px;border-radius:20px;}
   .chip:hover{color:var(--text);border-color:var(--muted);}
 
+  .cart-card{margin-bottom:var(--gap);}
+  .cart-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
+  .jog-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;}
+  .pos-display.small{font-size:1rem;}
+
   .cal-card{max-width:1200px;margin:0 auto;}
   .cal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--gap);}
   .cal-step{background:var(--bg);border:1px solid var(--surface2);border-radius:8px;padding:14px;
@@ -95,5 +100,6 @@ static const char APP_CSS[] PROGMEM = R"rawcss(
   .check{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--text);}
   details summary{cursor:pointer;font-size:.8rem;color:var(--muted);}
 
-  @media(max-width:480px){.config-row{grid-template-columns:1fr 1fr;} .config-row button{grid-column:1/-1;}}
+  @media(max-width:480px){.config-row{grid-template-columns:1fr 1fr;} .config-row button{grid-column:1/-1;}
+                         .cart-grid{grid-template-columns:repeat(3,1fr);} .jog-grid{grid-template-columns:repeat(2,1fr);}}
 )rawcss";

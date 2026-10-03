@@ -14,6 +14,7 @@
 #include "moveo_config.h"
 #include "joints.h"
 #include "json_util.h"
+#include "kinematics.h"
 
 /* ── Embedded web assets (PROGMEM) ──
    /app.css, /app.js  shared by both pages
@@ -45,6 +46,26 @@ static void sendOk(AsyncWebServerRequest* request) {
 
 static void sendJointNotFound(AsyncWebServerRequest* request) {
   request->send(404, "application/json", "{\"error\":\"joint not found\"}");
+}
+
+static void sendError(AsyncWebServerRequest* request, int code, const String& msg) {
+  request->send(code, "application/json", "{\"error\":\"" + msg + "\"}");
+}
+
+static_assert(KIN_JOINTS == NUM_STEPPERS, "kinematics expects one stepper per joint");
+
+// J1-J5 angles from the step counters; with useTarget, moving joints report
+// their target. Returns the first uncalibrated joint, or 0 on success.
+static int jointDegrees(bool useTarget, float deg[KIN_JOINTS]) {
+  for (int j = 1; j <= KIN_JOINTS; j++) {
+    JointCal c = getCal(j);
+    if (!isCalibrated(c)) return j;
+    FastAccelStepper* s = stepperByIndex(j);
+    int32_t pos = 0;
+    if (s) pos = (useTarget && s->isRunning()) ? s->targetPos() : s->getCurrentPosition();
+    deg[j - 1] = stepsToDeg(c, pos);
+  }
+  return 0;
 }
 
 /* ─────────────────────────────────────────────
@@ -82,6 +103,7 @@ static void handleAppJs(AsyncWebServerRequest* request) {
 
 // GET /status  →  JSON with current positions
 //   jN: steps, aN: degrees (null if uncalibrated), mN: 1 while moving
+//   x/y/z (mm), pitch/yaw (deg): tool pose (null unless all joints calibrated)
 static void handleStatus(AsyncWebServerRequest* request) {
   String json = "{";
   for (int i = 1; i <= NUM_STEPPERS; i++) {
@@ -92,6 +114,15 @@ static void handleStatus(AsyncWebServerRequest* request) {
     json += ",\"a" + String(i) + "\":" + (isCalibrated(c) ? String(stepsToDeg(c, pos), 2) : String("null"));
     json += ",\"m" + String(i) + "\":" + String((s && s->isRunning()) ? 1 : 0);
     if (i < NUM_STEPPERS) json += ",";
+  }
+  float deg[KIN_JOINTS];
+  if (jointDegrees(false, deg) == 0) {
+    Pose p;
+    forwardKinematics(deg, p);
+    json += ",\"x\":" + String(p.x, 1) + ",\"y\":" + String(p.y, 1) + ",\"z\":" + String(p.z, 1);
+    json += ",\"pitch\":" + String(p.pitch, 1) + ",\"yaw\":" + String(p.yaw, 1);
+  } else {
+    json += ",\"x\":null,\"y\":null,\"z\":null,\"pitch\":null,\"yaw\":null";
   }
   json += ",\"servo\":" + String(servo_us) + "}";
   AsyncWebServerResponse* resp = request->beginResponse(200, "application/json", json);
@@ -226,6 +257,62 @@ static void handleSetPos(AsyncWebServerRequest* request,
   sendOk(request);
 }
 
+// POST /movepose  →  body {x, y, z, pitch, yaw?, rel?, dry?}
+// Solve IK for the tool pose (see kinematics.h) and move all joints so they
+// arrive together. Omitting yaw keeps the approach in the arm plane (J4 = 0).
+// rel:1  x/y/z/pitch (and yaw, if given) are offsets from the current target
+//        pose; missing offsets are 0.
+// dry:1  solve only, don't move.
+// Replies {"ok":true,"deg":[j1..j5]}.
+static void handleMovePose(AsyncWebServerRequest* request,
+                           uint8_t* data, size_t len, size_t /*index*/, size_t /*total*/) {
+  String body = String((char*)data, len);
+  float cur[KIN_JOINTS];
+  int uncal = jointDegrees(true, cur);
+  if (uncal) { sendError(request, 409, "joint " + String(uncal) + " not calibrated"); return; }
+
+  Pose t = {jsonFloat(body, "x"), jsonFloat(body, "y"), jsonFloat(body, "z"),
+            jsonFloat(body, "pitch"), jsonFloat(body, "yaw")};
+  bool planar = !isfinite(t.yaw);
+  if (jsonFloat(body, "rel") > 0) {
+    Pose base;
+    forwardKinematics(cur, base);
+    t.x     = base.x     + (isfinite(t.x)     ? t.x     : 0);
+    t.y     = base.y     + (isfinite(t.y)     ? t.y     : 0);
+    t.z     = base.z     + (isfinite(t.z)     ? t.z     : 0);
+    t.pitch = base.pitch + (isfinite(t.pitch) ? t.pitch : 0);
+    if (!planar) t.yaw += base.yaw;
+  }
+  if (!isfinite(t.x) || !isfinite(t.y) || !isfinite(t.z) || !isfinite(t.pitch)) {
+    sendError(request, 400, "x, y, z and pitch are required");
+    return;
+  }
+
+  float lo[KIN_JOINTS], hi[KIN_JOINTS], out[KIN_JOINTS];
+  for (int j = 0; j < KIN_JOINTS; j++) {
+    JointCal c = getCal(j + 1);
+    lo[j] = c.limits ? c.minDeg : -INFINITY;
+    hi[j] = c.limits ? c.maxDeg :  INFINITY;
+  }
+  IkStatus st = inverseKinematics(t, planar, cur, lo, hi, out);
+  if (st == IK_UNREACHABLE) { sendError(request, 422, "pose unreachable"); return; }
+  if (st == IK_LIMITS)      { sendError(request, 422, "pose outside joint limits"); return; }
+
+  if (!(jsonFloat(body, "dry") > 0)) {
+    int32_t targets[NUM_STEPPERS];
+    for (int j = 0; j < KIN_JOINTS; j++) targets[j] = degToSteps(getCal(j + 1), out[j]);
+    enqueueMoveSync(targets);
+  }
+
+  String json = "{\"ok\":true,\"deg\":[";
+  for (int j = 0; j < KIN_JOINTS; j++) {
+    json += String(out[j], 2);
+    if (j < KIN_JOINTS - 1) json += ",";
+  }
+  json += "]}";
+  request->send(200, "application/json", json);
+}
+
 // Register a POST route whose handler needs the request body.
 // The ACK is sent inside the body handler, so the request handler is empty.
 static void onPostBody(const char* path, ArBodyHandlerFunction bodyHandler) {
@@ -253,6 +340,7 @@ void setupWebServer() {
   onPostBody("/calib",     handleCalibSet);
   onPostBody("/moveangle", handleMoveAngle);
   onPostBody("/setpos",    handleSetPos);
+  onPostBody("/movepose",  handleMovePose);
 
   // CORS pre-flight (OPTIONS) — reply 204 for all paths
   server.onNotFound([](AsyncWebServerRequest* request) {

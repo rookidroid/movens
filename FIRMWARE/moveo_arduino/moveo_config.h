@@ -37,3 +37,21 @@ const int SERVO_MAX = 2300;
   #define APSSID "moveo"
   #define APPSK  "moveo_1234"
 #endif
+
+/* ── Arm geometry for kinematics (mm) ──
+   NOMINAL values: measure your arm and update them.
+   Frame: origin on the J1 axis at the base mounting surface, +Z up,
+   +X forward at J1 = 0. Joint angles (deg) must follow these conventions,
+   so calibrate each joint's home / direction to match:
+     J1  yaw about +Z. 0 = arm faces +X, + = counter-clockwise seen from above
+     J2  shoulder.     0 = upper arm vertical, + = tilts forward (toward the reach)
+     J3  elbow.        0 = forearm in line with upper arm, + = bends forward
+     J4  wrist roll.   0 = J5 axis parallel to J2 axis, + = right-handed about the forearm
+     J5  wrist pitch.  0 = gripper in line with forearm, + = bends forward (at J4 = 0)
+   All zero = arm pointing straight up. */
+#define KIN_D1 232.0f  // base -> J2 axis height
+#define KIN_A1   0.0f  // forward offset of J2 axis from J1 axis
+#define KIN_A2 221.0f  // J2 axis -> J3 axis
+#define KIN_D4 223.0f  // J3 axis -> J5 axis, along the forearm
+#define KIN_A3   0.0f  // forearm axis offset from J3 axis (+ = forward of the forearm)
+#define KIN_D6 170.0f  // J5 axis -> tool point (fingertip centre)
