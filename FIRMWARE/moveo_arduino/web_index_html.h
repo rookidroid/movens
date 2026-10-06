@@ -11,6 +11,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawhtml(
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Moveo Control</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
 <link rel="stylesheet" href="/app.css"/>
 </head>
 <body data-page="control">

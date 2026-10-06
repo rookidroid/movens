@@ -36,7 +36,15 @@ function setPref(key, v){
   const link = (href, id, text) =>
     `<a href="${href}"${page === id ? ' class="active" aria-current="page"' : ''}>${text}</a>`;
   $('appbar').innerHTML = `
-    <div class="brand"><span class="brand-mark">MOVEO</span><span class="brand-sub">5-AXIS ARM CONTROLLER</span></div>
+    <div class="brand">
+      <svg class="brand-logo" viewBox="0 0 64 64" aria-hidden="true">
+        <rect x="2" y="2" width="60" height="60" rx="12" class="bl-tile"/>
+        <path d="M12 52H36M17 52L19 46H29L31 52M41 31H55M41 31V38L44 41M55 31V38L52 41" class="bl-ink" stroke-width="3.5"/>
+        <path d="M24 46V38L34 18L48 24V30" class="bl-ink" stroke-width="5"/>
+        <circle cx="24" cy="38" r="3.5" class="bl-joint"/><circle cx="34" cy="18" r="3.5" class="bl-joint"/><circle cx="48" cy="24" r="3" class="bl-joint"/>
+      </svg>
+      <div class="brand-text"><span class="brand-mark">MOVEO</span><span class="brand-sub">5-AXIS ARM CONTROLLER</span></div>
+    </div>
     <nav class="nav">${link('/', 'control', 'Control')}${link('/calibrate', 'calibrate', 'Calibrate')}${link('/network', 'network', 'Network')}</nav>
     <div class="conn" title="Robot connection">
       <span class="led" id="dot"></span><span id="conn-status">Connecting</span>

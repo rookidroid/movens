@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="logo/moveo-logo-dark.svg">
+    <img src="logo/moveo-logo.svg" alt="Moveo" width="342">
+  </picture>
+</p>
+
 # BCN3D MOVEO
 
 This is the repository that contains the CAD files, the STL files, the user manual (with the assembly manual), the firmware, and the Bill of Materials of the BCN3D Moveo.

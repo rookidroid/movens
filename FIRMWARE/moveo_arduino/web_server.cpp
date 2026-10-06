@@ -22,9 +22,11 @@
    /app.css, /app.js  shared by both pages
    /                  joint control page
    /calibrate         joint calibration page
-   /network           WiFi settings page */
+   /network           WiFi settings page
+   /favicon.svg       browser-tab icon */
 #include "web_app_css.h"
 #include "web_app_js.h"
+#include "web_favicon_svg.h"
 #include "web_calib_html.h"
 #include "web_index_html.h"
 #include "web_network_html.h"
@@ -108,6 +110,11 @@ static void handleAppCss(AsyncWebServerRequest* request) {
 
 static void handleAppJs(AsyncWebServerRequest* request) {
   sendAsset(request, "application/javascript; charset=utf-8", APP_JS);
+}
+
+// GET /favicon.svg  →  browser-tab icon
+static void handleFavicon(AsyncWebServerRequest* request) {
+  sendAsset(request, "image/svg+xml", FAVICON_SVG);
 }
 
 // GET /status  →  JSON with current positions
@@ -477,6 +484,7 @@ void setupWebServer() {
   server.on("/network",   HTTP_GET, handleNetworkPage);
   server.on("/app.css",   HTTP_GET, handleAppCss);
   server.on("/app.js",    HTTP_GET, handleAppJs);
+  server.on("/favicon.svg", HTTP_GET, handleFavicon);
   server.on("/status",    HTTP_GET, handleStatus);
   server.on("/calib",     HTTP_GET, handleCalibGet);
   server.on("/config",    HTTP_GET, handleConfigGet);
