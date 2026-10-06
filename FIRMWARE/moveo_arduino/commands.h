@@ -23,7 +23,7 @@ enum CmdType : uint8_t {
 struct Command {
   CmdType type;
   int     joint;  // 1-5 for steppers
-  int32_t val1;   // steps / pos / speed / us
+  int32_t val1;   // steps / pos / speed / us / speed scale ‰ (CMD_MOVESYNC)
   int32_t val2;   // accel (CMD_CONFIG only)
   int32_t targets[NUM_STEPPERS];  // CMD_MOVESYNC only, index 0 = J1
 };
@@ -34,8 +34,9 @@ void setupCommandQueue();
 void enqueueCommand(CmdType type, int joint = 0, int32_t val1 = 0, int32_t val2 = 0);
 
 // Move every joint to targets[0..NUM_STEPPERS-1] (absolute steps) so they
-// start and finish together. Same queueing rules as enqueueCommand().
-void enqueueMoveSync(const int32_t targets[NUM_STEPPERS]);
+// start and finish together. speedScale (0.01-1) slows the whole move down
+// relative to the configured speed / accel. Same queueing rules as enqueueCommand().
+void enqueueMoveSync(const int32_t targets[NUM_STEPPERS], float speedScale = 1.0f);
 
 // Speed (steps/s) and acceleration (steps/s²) last set through CMD_CONFIG.
 uint32_t jointSpeed(int joint);

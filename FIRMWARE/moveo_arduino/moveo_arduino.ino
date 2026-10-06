@@ -39,7 +39,7 @@
      calibration.*     steps <-> degrees, soft limits, NVS persistence
      kinematics.*      forward / inverse kinematics (tool pose <-> joint angles)
      commands.*        FreeRTOS queue bridging web callbacks (Core 0) to loop() (Core 1)
-     connectivity.*    WiFi access point, AP watchdog, OTA
+     connectivity.*    WiFi station / access point fallback, saved network, OTA
      web_server.*      async HTTP routes / REST API
      web_*.h           embedded HTML / CSS / JS
      json_util.*       minimal JSON number parsing

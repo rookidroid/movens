@@ -2,6 +2,7 @@
 
 #include <ESP32Servo.h>
 
+#include "calibration.h"
 #include "moveo_config.h"
 
 static FastAccelStepperEngine engine = FastAccelStepperEngine();
@@ -32,8 +33,9 @@ void setupJoints() {
     FastAccelStepper* s = engine.stepperConnectToPin(STEP_PINS[i]);
     if (s) {
       s->setDirectionPin(DIR_PINS[i]);
-      s->setSpeedInHz(STEPPER_SPEED_HZ);
-      s->setAcceleration(STEPPER_ACCEL);
+      JointMotion m = getMotion(i);  // loadCal() has run
+      s->setSpeedInHz(m.speed);
+      s->setAcceleration(m.accel);
     }
     steppers[i] = s;
   }

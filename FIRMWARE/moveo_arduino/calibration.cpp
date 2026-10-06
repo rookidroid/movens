@@ -2,6 +2,8 @@
 
 #include <Preferences.h>
 
+#include "moveo_config.h"
+
 // Fallback when NVS is empty. Paste the initializer printed on Serial
 // after a calibration save here to make it the new default.
 static const JointCal DEFAULT_CAL[6] = {
@@ -13,7 +15,8 @@ static const JointCal DEFAULT_CAL[6] = {
   {0, 0, -180, 180, false},  // J5
 };
 
-static JointCal cal[6];  // index 1-5 used
+static JointCal    cal[6];     // index 1-5 used
+static JointMotion motion[6];  // index 1-5 used
 static portMUX_TYPE calMux = portMUX_INITIALIZER_UNLOCKED;
 static volatile bool dirty = false;  // set by updateCal(), cleared by saveCal()
 static Preferences prefs;
@@ -34,6 +37,21 @@ void updateCal(int j, float spd, float home, float minDeg, float maxDeg, float l
   if (isfinite(maxDeg)) c.maxDeg = maxDeg;
   if (isfinite(limits)) c.limits = limits != 0;
   if (c.minDeg > c.maxDeg) { float t = c.minDeg; c.minDeg = c.maxDeg; c.maxDeg = t; }
+  dirty = true;
+  portEXIT_CRITICAL(&calMux);
+}
+
+JointMotion getMotion(int j) {
+  portENTER_CRITICAL(&calMux);
+  JointMotion m = motion[j];
+  portEXIT_CRITICAL(&calMux);
+  return m;
+}
+
+void updateMotion(int j, uint32_t speed, uint32_t accel) {
+  portENTER_CRITICAL(&calMux);
+  if (speed) motion[j].speed = speed;
+  if (accel) motion[j].accel = accel;
   dirty = true;
   portEXIT_CRITICAL(&calMux);
 }
@@ -61,9 +79,13 @@ int32_t clampSteps(const JointCal& c, int32_t target) {
 
 void loadCal() {
   memcpy(cal, DEFAULT_CAL, sizeof(cal));
+  for (int j = 0; j < 6; j++) motion[j] = {STEPPER_SPEED_HZ, STEPPER_ACCEL};
   if (prefs.begin("moveo", true)) {
     if (prefs.getBytesLength("cal") == sizeof(cal)) {
       prefs.getBytes("cal", cal, sizeof(cal));
+    }
+    if (prefs.getBytesLength("motion") == sizeof(motion)) {
+      prefs.getBytes("motion", motion, sizeof(motion));
     }
     prefs.end();
   }
@@ -74,14 +96,17 @@ bool calDirty() {
 }
 
 void saveCal() {
-  JointCal copy[6];
+  JointCal    copy[6];
+  JointMotion motionCopy[6];
   portENTER_CRITICAL(&calMux);
   memcpy(copy, cal, sizeof(cal));
+  memcpy(motionCopy, motion, sizeof(motion));
   dirty = false;
   portEXIT_CRITICAL(&calMux);
 
   prefs.begin("moveo", false);
   prefs.putBytes("cal", copy, sizeof(copy));
+  prefs.putBytes("motion", motionCopy, sizeof(motionCopy));
   prefs.end();
 
   Serial.println("[calib] saved. DEFAULT_CAL initializer:");

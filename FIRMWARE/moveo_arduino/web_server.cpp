@@ -8,9 +8,11 @@
  *    - "AsyncTCP" by ESP32Async  ← required dependency
  */
 #include <ESPAsyncWebServer.h>
+#include <WiFi.h>
 
 #include "calibration.h"
 #include "commands.h"
+#include "connectivity.h"
 #include "moveo_config.h"
 #include "joints.h"
 #include "json_util.h"
@@ -19,11 +21,13 @@
 /* ── Embedded web assets (PROGMEM) ──
    /app.css, /app.js  shared by both pages
    /                  joint control page
-   /calibrate         joint calibration page */
+   /calibrate         joint calibration page
+   /network           WiFi settings page */
 #include "web_app_css.h"
 #include "web_app_js.h"
 #include "web_calib_html.h"
 #include "web_index_html.h"
+#include "web_network_html.h"
 
 static AsyncWebServer server(80);
 
@@ -90,6 +94,11 @@ static void handleRoot(AsyncWebServerRequest* request) {
 // GET /calibrate  →  serve the calibration page
 static void handleCalibratePage(AsyncWebServerRequest* request) {
   sendAsset(request, "text/html", CALIB_HTML);
+}
+
+// GET /network  →  serve the WiFi settings page
+static void handleNetworkPage(AsyncWebServerRequest* request) {
+  sendAsset(request, "text/html", NETWORK_HTML);
 }
 
 // GET /app.css, /app.js  →  assets shared by both pages
@@ -202,7 +211,7 @@ static void handleServo(AsyncWebServerRequest* request,
   sendOk(request);
 }
 
-// GET /calib  →  calibration of all joints
+// GET /calib  →  calibration and saved motion profile of all joints
 static void handleCalibGet(AsyncWebServerRequest* request) {
   String json = "{";
   for (int j = 1; j <= NUM_STEPPERS; j++) {
@@ -213,6 +222,9 @@ static void handleCalibGet(AsyncWebServerRequest* request) {
     json += ",\"min\":"    + String(c.minDeg, 2);
     json += ",\"max\":"    + String(c.maxDeg, 2);
     json += ",\"limits\":" + String(c.limits ? "true" : "false");
+    JointMotion m = getMotion(j);
+    json += ",\"speed\":"  + String(m.speed);
+    json += ",\"accel\":"  + String(m.accel);
     json += "}";
     if (j < NUM_STEPPERS) json += ",";
   }
@@ -222,8 +234,9 @@ static void handleCalibGet(AsyncWebServerRequest* request) {
   request->send(resp);
 }
 
-// POST /calib  →  body {joint, spd?, home?, min?, max?, limits?}
+// POST /calib  →  body {joint, spd?, home?, min?, max?, limits?, speed?, accel?}
 // Omitted fields keep their current value. Saved to NVS from loop().
+// speed (steps/s) / accel (steps/s²) also take effect right away.
 static void handleCalibSet(AsyncWebServerRequest* request,
                            uint8_t* data, size_t len, size_t /*index*/, size_t /*total*/) {
   String body  = String((char*)data, len);
@@ -235,6 +248,14 @@ static void handleCalibSet(AsyncWebServerRequest* request,
             jsonFloat(body, "min"),
             jsonFloat(body, "max"),
             jsonFloat(body, "limits"));
+  float speed = jsonFloat(body, "speed");
+  float accel = jsonFloat(body, "accel");
+  uint32_t sp = isfinite(speed) && speed >= 1 ? (uint32_t)lroundf(speed) : 0;
+  uint32_t ac = isfinite(accel) && accel >= 1 ? (uint32_t)lroundf(accel) : 0;
+  if (sp || ac) {
+    updateMotion(jIdx, sp, ac);
+    enqueueCommand(CMD_CONFIG, jIdx, sp, ac);  // 0 keeps the current value
+  }
   sendOk(request);
 }
 
@@ -252,18 +273,24 @@ static void handleMoveAngle(AsyncWebServerRequest* request,
   sendOk(request);
 }
 
-// POST /setpos  →  body {joint, deg}
-// Declare "the joint is at <deg> right now" without moving it.
+// POST /setpos  →  body {joint, deg} | {joint, steps}
+// Declare "the joint is at <deg> / <steps> right now" without moving it.
 // Uncalibrated joints only accept deg == home (i.e. zero at the alignment pose).
 static void handleSetPos(AsyncWebServerRequest* request,
                          uint8_t* data, size_t len, size_t /*index*/, size_t /*total*/) {
   String body  = String((char*)data, len);
   int jIdx     = jsonInt(body, "joint");
   float deg    = jsonFloat(body, "deg");
+  float steps  = jsonFloat(body, "steps");
   if (!validJoint(jIdx))   { sendJointNotFound(request); return; }
-  if (!isfinite(deg))      { request->send(400, "application/json", "{\"error\":\"missing deg\"}"); return; }
   FastAccelStepper* s = stepperByIndex(jIdx);
   if (s && s->isRunning()) { request->send(409, "application/json", "{\"error\":\"joint is moving\"}"); return; }
+  if (isfinite(steps)) {
+    enqueueCommand(CMD_SETPOS, jIdx, (int32_t)lroundf(steps));
+    sendOk(request);
+    return;
+  }
+  if (!isfinite(deg))      { request->send(400, "application/json", "{\"error\":\"missing deg or steps\"}"); return; }
   JointCal c = getCal(jIdx);
   if (!isCalibrated(c) && fabsf(deg - c.home) > 1e-3f) {
     request->send(409, "application/json", "{\"error\":\"joint not calibrated\"}");
@@ -273,12 +300,47 @@ static void handleSetPos(AsyncWebServerRequest* request,
   sendOk(request);
 }
 
-// POST /movepose  →  body {x, y, z, pitch, yaw?, rel?, dry?}
+// Optional "speed" field (0.01-1) of the synchronized moves; 1 if missing
+static float speedScale(const String& body) {
+  float s = jsonFloat(body, "speed");
+  return isfinite(s) && s > 0 ? constrain(s, 0.01f, 1.0f) : 1.0f;
+}
+
+// POST /movejoints  →  body {a1..a5 (deg) | j1..j5 (steps), speed?}
+// Move several joints so they start and finish together. Keys match /status;
+// per joint, aN wins over jN. Omitted joints hold their current target.
+static void handleMoveJoints(AsyncWebServerRequest* request,
+                             uint8_t* data, size_t len, size_t /*index*/, size_t /*total*/) {
+  String body = String((char*)data, len);
+  int32_t targets[NUM_STEPPERS];
+  int given = 0;
+  for (int j = 1; j <= NUM_STEPPERS; j++) {
+    FastAccelStepper* s = stepperByIndex(j);
+    targets[j - 1] = s ? (s->isRunning() ? s->targetPos() : s->getCurrentPosition()) : 0;
+    float deg   = jsonFloat(body, ("a" + String(j)).c_str());
+    float steps = jsonFloat(body, ("j" + String(j)).c_str());
+    if (isfinite(deg)) {
+      JointCal c = getCal(j);
+      if (!isCalibrated(c)) { sendError(request, 409, "joint " + String(j) + " not calibrated"); return; }
+      targets[j - 1] = degToSteps(c, deg);
+      given++;
+    } else if (isfinite(steps)) {
+      targets[j - 1] = (int32_t)lroundf(steps);
+      given++;
+    }
+  }
+  if (!given) { sendError(request, 400, "no joint targets"); return; }
+  enqueueMoveSync(targets, speedScale(body));  // soft limits applied in loop()
+  sendOk(request);
+}
+
+// POST /movepose  →  body {x, y, z, pitch, yaw?, rel?, dry?, speed?}
 // Solve IK for the tool pose (see kinematics.h) and move all joints so they
 // arrive together. Omitting yaw keeps the approach in the arm plane (J4 = 0).
 // rel:1  x/y/z/pitch (and yaw, if given) are offsets from the current target
 //        pose; missing offsets are 0.
 // dry:1  solve only, don't move.
+// speed  0.01-1 scales the move's speed (default 1).
 // Replies {"ok":true,"deg":[j1..j5]}.
 static void handleMovePose(AsyncWebServerRequest* request,
                            uint8_t* data, size_t len, size_t /*index*/, size_t /*total*/) {
@@ -317,7 +379,7 @@ static void handleMovePose(AsyncWebServerRequest* request,
   if (!(jsonFloat(body, "dry") > 0)) {
     int32_t targets[NUM_STEPPERS];
     for (int j = 0; j < KIN_JOINTS; j++) targets[j] = degToSteps(getCal(j + 1), out[j]);
-    enqueueMoveSync(targets);
+    enqueueMoveSync(targets, speedScale(body));
   }
 
   String json = "{\"ok\":true,\"deg\":[";
@@ -326,6 +388,79 @@ static void handleMovePose(AsyncWebServerRequest* request,
     if (j < KIN_JOINTS - 1) json += ",";
   }
   json += "]}";
+  request->send(200, "application/json", json);
+}
+
+// GET /wifi  →  current connection and the saved network
+//   mode: "sta" (joined the saved network) | "ap" (own access point)
+//   saved: network joined at boot ("" = none), ssid: network in use now
+//   rssi: dBm (null in AP mode), host: mDNS name, ap: access point name
+static void handleWifiGet(AsyncWebServerRequest* request) {
+  bool sta = wifiStationMode();
+  String json = "{\"mode\":\"" + String(sta ? "sta" : "ap") + "\"";
+  json += ",\"saved\":"     + jsonQuote(wifiSavedSsid());
+  json += ",\"ssid\":"      + jsonQuote(sta ? WiFi.SSID() : String(APSSID));
+  json += ",\"connected\":" + String(!sta || WiFi.status() == WL_CONNECTED ? "true" : "false");
+  json += ",\"ip\":\""       + (sta ? WiFi.localIP() : WiFi.softAPIP()).toString() + "\"";
+  json += ",\"rssi\":"      + (sta ? String(WiFi.RSSI()) : String("null"));
+  json += ",\"host\":\"" WIFI_HOSTNAME ".local\"";
+  json += ",\"ap\":"        + jsonQuote(APSSID) + "}";
+  AsyncWebServerResponse* resp = request->beginResponse(200, "application/json", json);
+  addCors(resp);
+  request->send(resp);
+}
+
+// POST /wifi  →  body {ssid, password?}
+// Save the network to join at boot and restart. ssid "" forgets the saved
+// network, so the robot always starts its access point.
+static void handleWifiSet(AsyncWebServerRequest* request,
+                          uint8_t* data, size_t len, size_t /*index*/, size_t /*total*/) {
+  String body = String((char*)data, len);
+  String ssid, pass;
+  if (!jsonString(body, "ssid", ssid)) { sendError(request, 400, "missing ssid"); return; }
+  jsonString(body, "password", pass);
+  if (ssid.length() > 32) { sendError(request, 400, "SSID is longer than 32 bytes"); return; }
+  if (pass.length() && (pass.length() < 8 || pass.length() > 64)) {
+    sendError(request, 400, "password must be 8-64 characters, or empty for an open network");
+    return;
+  }
+  if (!wifiSaveCredentials(ssid, ssid.length() ? pass : String())) {
+    sendError(request, 500, "could not save settings");
+    return;
+  }
+  enqueueCommand(CMD_STOP);
+  scheduleRestart(1500);
+  sendOk(request);
+}
+
+// GET /wifiscan  →  {"scanning":true} while a scan runs (poll again), then
+// {"networks":[{ssid, rssi, secure}]} (unsorted, may repeat an SSID).
+// The first call starts a scan.
+static void handleWifiScan(AsyncWebServerRequest* request) {
+  int n = WiFi.scanComplete();
+  if (n == WIFI_SCAN_FAILED) {
+    WiFi.scanNetworks(true);
+    n = WIFI_SCAN_RUNNING;
+  }
+  if (n == WIFI_SCAN_RUNNING) {
+    request->send(200, "application/json", "{\"scanning\":true}");
+    return;
+  }
+
+  String json = "{\"networks\":[";
+  bool first = true;
+  for (int i = 0; i < n; i++) {
+    String ssid = WiFi.SSID(i);
+    if (!ssid.length()) continue;  // hidden network
+    if (!first) json += ",";
+    first = false;
+    json += "{\"ssid\":" + jsonQuote(ssid);
+    json += ",\"rssi\":" + String(WiFi.RSSI(i));
+    json += ",\"secure\":" + String(WiFi.encryptionType(i) != WIFI_AUTH_OPEN ? "true" : "false");
+    json += "}";
+  }
+  json += "]}";
+  WiFi.scanDelete();
   request->send(200, "application/json", json);
 }
 
@@ -339,11 +474,14 @@ void setupWebServer() {
   // GET endpoints
   server.on("/",          HTTP_GET, handleRoot);
   server.on("/calibrate", HTTP_GET, handleCalibratePage);
+  server.on("/network",   HTTP_GET, handleNetworkPage);
   server.on("/app.css",   HTTP_GET, handleAppCss);
   server.on("/app.js",    HTTP_GET, handleAppJs);
   server.on("/status",    HTTP_GET, handleStatus);
   server.on("/calib",     HTTP_GET, handleCalibGet);
   server.on("/config",    HTTP_GET, handleConfigGet);
+  server.on("/wifi",      HTTP_GET, handleWifiGet);
+  server.on("/wifiscan",  HTTP_GET, handleWifiScan);
 
   // POST endpoints without a body
   server.on("/stop", HTTP_POST, handleStop);
@@ -358,6 +496,8 @@ void setupWebServer() {
   onPostBody("/moveangle", handleMoveAngle);
   onPostBody("/setpos",    handleSetPos);
   onPostBody("/movepose",  handleMovePose);
+  onPostBody("/movejoints", handleMoveJoints);
+  onPostBody("/wifi",      handleWifiSet);
 
   // CORS pre-flight (OPTIONS) — reply 204 for all paths
   server.onNotFound([](AsyncWebServerRequest* request) {
@@ -371,5 +511,6 @@ void setupWebServer() {
   });
 
   server.begin();
-  Serial.println("Async web server started on http://192.168.4.1");
+  Serial.print("Async web server started on http://");
+  Serial.println(wifiStationMode() ? WiFi.localIP() : WiFi.softAPIP());
 }

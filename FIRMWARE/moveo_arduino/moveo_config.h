@@ -32,11 +32,16 @@ const int SERVO_MID = 1500;
 const int SERVO_MIN = 700;
 const int SERVO_MAX = 2300;
 
-/* ── WiFi (Access Point) ── */
+/* ── WiFi ──
+   At boot the robot joins the network saved from the web UI (Network page).
+   If none is saved, or it can't connect within WIFI_CONNECT_TIMEOUT_MS, it
+   starts its own access point instead (http://192.168.4.1). */
 #ifndef APSSID
   #define APSSID "moveo"
   #define APPSK  "moveo_1234"
 #endif
+#define WIFI_HOSTNAME           "moveo"  // also mDNS: http://moveo.local
+#define WIFI_CONNECT_TIMEOUT_MS 15000
 
 /* ── Arm geometry for kinematics (mm) ──
    NOMINAL values: measure your arm and update them.
@@ -54,4 +59,4 @@ const int SERVO_MAX = 2300;
 #define KIN_A2 221.0f  // J2 axis -> J3 axis
 #define KIN_D4 223.0f  // J3 axis -> J5 axis, along the forearm
 #define KIN_A3   0.0f  // forearm axis offset from J3 axis (+ = forward of the forearm)
-#define KIN_D6 170.0f  // J5 axis -> tool point (fingertip centre)
+#define KIN_D6 175.0f  // J5 axis -> tool point (fingertip centre)

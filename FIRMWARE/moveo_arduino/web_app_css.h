@@ -144,11 +144,12 @@ fieldset:disabled .btn.primary{color:var(--accent-ink)}
 .actions.fill{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
 .actions.fill .btn{padding:0 4px}
 
-input[type=number]{width:100%;height:36px;padding:0 8px;font:14px var(--mono);font-variant-numeric:tabular-nums;
+input[type=number],input[type=text],input[type=password]{width:100%;height:36px;padding:0 8px;font:14px var(--mono);font-variant-numeric:tabular-nums;
   color:var(--ink);background:var(--inset);border:1px solid var(--line-2);border-radius:var(--r);
   outline:none;-moz-appearance:textfield;appearance:textfield}
 input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+input[type=text],input[type=password]{font-variant-numeric:normal}
+input[type=number]:focus,input[type=text]:focus,input[type=password]:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
 input[type=number]:disabled{opacity:.5}
 input[type=number].dirty{border-color:var(--warn)}
 input::placeholder{color:var(--ink-3)}
@@ -156,6 +157,7 @@ input::placeholder{color:var(--ink-3)}
 .field > span:not(.inp){font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
 .inp{position:relative;display:block;min-width:0}
 .inp input{padding-right:30px}
+.inp.wide input{padding-right:42px}
 .inp i{position:absolute;right:8px;top:50%;transform:translateY(-50%);font:normal 11px var(--mono);
   color:var(--ink-3);pointer-events:none}
 .check{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer}
@@ -337,7 +339,46 @@ input[type=range]::-moz-range-thumb{width:14px;height:26px;background:var(--acce
 .lim-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .lim-grid .btn{margin-top:6px;width:100%}
 .fit{font:12px/1.5 var(--mono);color:var(--ok)}
+.fit.warn{color:var(--warn)}
+.fit.err{color:var(--danger)}
+.fit.note{color:var(--ink-2)}
 .fit:empty{display:none}
+.pts{display:flex;flex-direction:column;border:1px solid var(--line)}
+.pt{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(72px,auto) auto;align-items:end;gap:8px 10px;
+  padding:10px;background:var(--inset);border-top:1px solid var(--line)}
+.pt:first-child{border-top:0}
+.pt-tag{align-self:center;display:flex;align-items:center;justify-content:center;width:28px;height:28px;
+  font:700 13px var(--mono);color:var(--ink-2);border:1px solid var(--line-2)}
+.pt.rec .pt-tag{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
+.pt-st{display:flex;flex-direction:column;gap:4px;min-width:0}
+.pt-st > span:first-child{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.pt-st .v{height:36px;line-height:36px;font:600 15px/36px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+@media (max-width:480px){
+  .pt{grid-template-columns:28px minmax(0,1fr) minmax(64px,auto)}
+  .pt .btn{grid-column:1/-1}
+}
+
+/* ── Network ───────────────────────────────────────────── */
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);background:var(--inset);border:1px solid var(--line)}
+.kv > span{padding:8px 12px;border-top:1px solid var(--line)}
+.kv > span:nth-child(-n+2){border-top:0}
+.kv .k{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);
+  border-right:1px solid var(--line)}
+.kv .v{font:13px var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.netlist{display:flex;flex-direction:column;max-height:280px;overflow-y:auto;border:1px solid var(--line)}
+.netlist:empty{display:none}
+.net{display:grid;grid-template-columns:minmax(0,1fr) auto auto 28px;align-items:center;gap:10px;padding:8px 10px;
+  text-align:left;background:var(--inset);border:0;border-top:1px solid var(--line)}
+.net:first-child{border-top:0}
+.net:hover{background:var(--accent-soft)}
+.net[aria-pressed=true]{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+.net .nm{overflow:hidden;font:13px var(--mono);white-space:nowrap;text-overflow:ellipsis}
+.net .lk,.net .db{font:11px var(--mono);color:var(--ink-3)}
+.net .db{text-align:right}
+.bars{display:inline-flex;align-items:flex-end;gap:2px;height:12px}
+.bars i{width:3px;background:var(--line-2)}
+.bars i:nth-child(1){height:25%}.bars i:nth-child(2){height:50%}.bars i:nth-child(3){height:75%}.bars i:nth-child(4){height:100%}
+.bars i.on{background:var(--accent)}
 
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{transition:none!important;animation:none!important}

@@ -144,7 +144,8 @@ static const char INDEX_HTML[] PROGMEM = R"rawhtml(
             <thead><tr><th>Joint</th><th>Speed <span class="unit">steps/s</span></th><th>Accel <span class="unit">steps/s&sup2;</span></th></tr></thead>
             <tbody id="cfg-body"></tbody>
           </table>
-          <p class="hint">Changed values are outlined. Settings last until the robot restarts.</p>
+          <p class="hint">Changed values are outlined. Settings last until the robot restarts; set the
+            power-on defaults on the Calibrate page.</p>
           <div class="actions"><span class="grow"></span>
             <button class="btn ghost" onclick="loadConfig()">Revert</button>
             <button class="btn primary" onclick="applyConfig()">Apply changes</button>

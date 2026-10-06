@@ -37,7 +37,7 @@ function setPref(key, v){
     `<a href="${href}"${page === id ? ' class="active" aria-current="page"' : ''}>${text}</a>`;
   $('appbar').innerHTML = `
     <div class="brand"><span class="brand-mark">MOVEO</span><span class="brand-sub">5-AXIS ARM CONTROLLER</span></div>
-    <nav class="nav">${link('/', 'control', 'Control')}${link('/calibrate', 'calibrate', 'Calibrate')}</nav>
+    <nav class="nav">${link('/', 'control', 'Control')}${link('/calibrate', 'calibrate', 'Calibrate')}${link('/network', 'network', 'Network')}</nav>
     <div class="conn" title="Robot connection">
       <span class="led" id="dot"></span><span id="conn-status">Connecting</span>
       <span class="conn-host">${location.host || '192.168.4.1'}</span>

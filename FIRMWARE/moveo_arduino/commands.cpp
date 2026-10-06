@@ -9,7 +9,8 @@
 
 static QueueHandle_t cmdQueue;
 
-// Speed / accel set through CMD_CONFIG. CMD_MOVESYNC scales them per move, so
+// Speed / accel: the saved motion profile at boot, then whatever CMD_CONFIG
+// sets. CMD_MOVESYNC scales them per move, so
 // every other move re-applies these. They can't be restored right after a
 // sync moveTo(): the stepper task reads them asynchronously.
 static uint32_t cfgSpeed[NUM_STEPPERS + 1];
@@ -19,8 +20,9 @@ void setupCommandQueue() {
   // Depth 20 — more than enough for burst button presses
   cmdQueue = xQueueCreate(20, sizeof(Command));
   for (int i = 1; i <= NUM_STEPPERS; i++) {
-    cfgSpeed[i] = STEPPER_SPEED_HZ;
-    cfgAccel[i] = STEPPER_ACCEL;
+    JointMotion m = getMotion(i);  // loadCal() has run
+    cfgSpeed[i] = m.speed;
+    cfgAccel[i] = m.accel;
   }
 }
 
@@ -32,8 +34,10 @@ void enqueueCommand(CmdType type, int joint, int32_t val1, int32_t val2) {
   xQueueSend(cmdQueue, &cmd, 0);
 }
 
-void enqueueMoveSync(const int32_t targets[NUM_STEPPERS]) {
+void enqueueMoveSync(const int32_t targets[NUM_STEPPERS], float speedScale) {
   Command cmd = {CMD_MOVESYNC};
+  if (!isfinite(speedScale)) speedScale = 1.0f;
+  cmd.val1 = constrain(lroundf(speedScale * 1000.0f), 10L, 1000L);  // per mille
   memcpy(cmd.targets, targets, sizeof(cmd.targets));
   xQueueSend(cmdQueue, &cmd, 0);
 }
@@ -53,7 +57,8 @@ static float moveTime(float steps, float v, float a) {
 
 // Scaling a joint's speed by k and accel by k^2 stretches its move time by 1/k,
 // so pick k = t_j / t_slowest for each joint and they all finish together.
-static void moveSync(const int32_t targets[NUM_STEPPERS]) {
+// scale (0-1] slows every joint by the same factor on top of that.
+static void moveSync(const int32_t targets[NUM_STEPPERS], float scale) {
   int32_t target[NUM_STEPPERS + 1];
   float   t[NUM_STEPPERS + 1] = {0};
   float   tMax = 0;
@@ -67,7 +72,7 @@ static void moveSync(const int32_t targets[NUM_STEPPERS]) {
   for (int j = 1; j <= NUM_STEPPERS; j++) {
     FastAccelStepper* s = stepperByIndex(j);
     if (!s) continue;
-    float k = tMax > 0 && t[j] > 0 ? t[j] / tMax : 1.0f;
+    float k = (tMax > 0 && t[j] > 0 ? t[j] / tMax : 1.0f) * scale;
     s->setSpeedInMilliHz(max(1UL, (unsigned long)lroundf(cfgSpeed[j] * 1000.0f * k)));
     s->setAcceleration(max(1L, lroundf(cfgAccel[j] * k * k)));
     s->moveTo(target[j]);
@@ -126,7 +131,7 @@ void processCommands() {
         break;
 
       case CMD_MOVESYNC:
-        moveSync(cmd.targets);
+        moveSync(cmd.targets, cmd.val1 / 1000.0f);
         break;
 
       case CMD_SERVO:

@@ -31,6 +31,20 @@ float   stepsToDeg(const JointCal& c, int32_t steps);
 // Clamp a target step position to the joint's soft limits (if enabled)
 int32_t clampSteps(const JointCal& c, int32_t target);
 
+/* Saved motion profile of a joint, applied at boot. Persisted with the
+   calibration but stored separately so older calibrations still load. */
+struct JointMotion {
+  uint32_t speed;  // steps/s
+  uint32_t accel;  // steps/s²
+};
+
+// Thread-safe copy of joint j's saved motion profile (j = 1-5)
+JointMotion getMotion(int j);
+
+// Update joint j's saved motion profile; 0 keeps the current value.
+// Marks the calibration dirty so loop() persists it.
+void updateMotion(int j, uint32_t speed, uint32_t accel);
+
 void loadCal();
 
 // True when updateCal() has changes not yet written by saveCal()
