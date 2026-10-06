@@ -10,7 +10,7 @@ static const char CALIB_HTML[] PROGMEM = R"rawhtml(
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Moveo Calibration</title>
+<title>Movens Calibration</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
 <link rel="stylesheet" href="/app.css"/>
 </head>

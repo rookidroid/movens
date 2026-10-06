@@ -10,7 +10,7 @@ static const char NETWORK_HTML[] PROGMEM = R"rawhtml(
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Moveo Network</title>
+<title>Movens Network</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
 <link rel="stylesheet" href="/app.css"/>
 </head>
@@ -39,7 +39,7 @@ static const char NETWORK_HTML[] PROGMEM = R"rawhtml(
         Check the network name and password, then save again.
       </div>
       <p class="hint">At power-on the robot joins the saved network. If none is saved, or it can't connect, it
-        starts its own access point <b class="w-ap">moveo</b> at <b>192.168.4.1</b> instead.</p>
+        starts its own access point <b class="w-ap">movens</b> at <b>192.168.4.1</b> instead.</p>
     </div>
   </section>
   </div>
@@ -70,8 +70,8 @@ static const char NETWORK_HTML[] PROGMEM = R"rawhtml(
       </div>
       <div class="notice" id="w-next" hidden></div>
       <p class="hint">Saving stops the motors and restarts the robot. Once it has joined your network, connect
-        this device to the same network and open <b id="w-url">http://moveo.local</b> or the IP address your
-        router assigned. If it can't join, reconnect to the <b class="w-ap">moveo</b> access point.</p>
+        this device to the same network and open <b id="w-url">http://movens.local</b> or the IP address your
+        router assigned. If it can't join, reconnect to the <b class="w-ap">movens</b> access point.</p>
     </div>
   </section>
 </main>
@@ -82,7 +82,7 @@ static const char NETWORK_HTML[] PROGMEM = R"rawhtml(
 <script>
 let NETS = [];        // last scan, one entry per SSID, strongest first
 let restarting = false;
-let AP = 'moveo';      // access point name
+let AP = 'movens';      // access point name
 
 const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const sleep = ms => new Promise(r => setTimeout(r, ms));

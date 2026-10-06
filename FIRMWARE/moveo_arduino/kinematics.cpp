@@ -2,7 +2,7 @@
 
 #include <math.h>
 
-#include "moveo_config.h"
+#include "movens_config.h"
 
 static const float PI_F = 3.14159265358979f;
 static const float D2R  = PI_F / 180.0f;

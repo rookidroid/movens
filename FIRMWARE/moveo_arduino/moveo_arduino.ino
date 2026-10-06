@@ -1,6 +1,6 @@
 /**
 
-  Moveo
+  Movens
 
   - Copyright (C) 2024 - PRESENT  rookidroid.com
   - E-mail: info@rookidroid.com
@@ -34,7 +34,7 @@
 
 /*
    Module layout
-     moveo_config.h    pins, servo range, WiFi credentials
+     movens_config.h   pins, servo range, WiFi credentials
      joints.*          stepper engine, J1-J5 steppers, hand servo
      calibration.*     steps <-> degrees, soft limits, NVS persistence
      kinematics.*      forward / inverse kinematics (tool pose <-> joint angles)

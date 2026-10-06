@@ -4,7 +4,7 @@
 #include <freertos/queue.h>
 
 #include "calibration.h"
-#include "moveo_config.h"
+#include "movens_config.h"
 #include "joints.h"
 
 static QueueHandle_t cmdQueue;

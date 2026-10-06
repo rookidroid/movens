@@ -6,7 +6,7 @@
    API helper, toast, E-stop, status polling and small UI widgets.
    Included only by web_server.cpp. */
 static const char APP_JS[] PROGMEM = R"rawjs(
-// Shared by all Moveo pages. A page sets <body data-page="..."> with an empty
+// Shared by all Movens pages. A page sets <body data-page="..."> with an empty
 // <header id="appbar"> and <div id="toast">, and may define onStatus(d) to
 // render /status replies.
 
@@ -23,11 +23,11 @@ function fmt(v, d = 1){
 
 // ── Per-browser UI preferences (never robot state) ───────────────────────────
 function pref(key, def){
-  try { const v = localStorage.getItem('moveo.' + key); return v == null ? def : JSON.parse(v); }
+  try { const v = localStorage.getItem('movens.' + key); return v == null ? def : JSON.parse(v); }
   catch(_){ return def; }
 }
 function setPref(key, v){
-  try { localStorage.setItem('moveo.' + key, JSON.stringify(v)); } catch(_){}
+  try { localStorage.setItem('movens.' + key, JSON.stringify(v)); } catch(_){}
 }
 
 // ── App bar (shared by every page) ────────────────────────────────────────────
@@ -43,7 +43,7 @@ function setPref(key, v){
         <path d="M24 46V38L34 18L48 24V30" class="bl-ink" stroke-width="5"/>
         <circle cx="24" cy="38" r="3.5" class="bl-joint"/><circle cx="34" cy="18" r="3.5" class="bl-joint"/><circle cx="48" cy="24" r="3" class="bl-joint"/>
       </svg>
-      <div class="brand-text"><span class="brand-mark">MOVEO</span><span class="brand-sub">5-AXIS ARM CONTROLLER</span></div>
+      <div class="brand-text"><span class="brand-mark">MOVENS</span><span class="brand-sub">5-AXIS ARM CONTROLLER</span></div>
     </div>
     <nav class="nav">${link('/', 'control', 'Control')}${link('/calibrate', 'calibrate', 'Calibrate')}${link('/network', 'network', 'Network')}</nav>
     <div class="conn" title="Robot connection">

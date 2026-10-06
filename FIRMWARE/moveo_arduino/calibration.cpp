@@ -2,7 +2,7 @@
 
 #include <Preferences.h>
 
-#include "moveo_config.h"
+#include "movens_config.h"
 
 // Fallback when NVS is empty. Paste the initializer printed on Serial
 // after a calibration save here to make it the new default.
@@ -77,10 +77,14 @@ int32_t clampSteps(const JointCal& c, int32_t target) {
   return constrain(target, lo, hi);
 }
 
+/* NVS namespace keeps its pre-rename name (the project was "Moveo") so
+   boards calibrated with older firmware keep their calibration. */
+static const char* NVS_NS = "moveo";
+
 void loadCal() {
   memcpy(cal, DEFAULT_CAL, sizeof(cal));
   for (int j = 0; j < 6; j++) motion[j] = {STEPPER_SPEED_HZ, STEPPER_ACCEL};
-  if (prefs.begin("moveo", true)) {
+  if (prefs.begin(NVS_NS, true)) {
     if (prefs.getBytesLength("cal") == sizeof(cal)) {
       prefs.getBytes("cal", cal, sizeof(cal));
     }
@@ -104,7 +108,7 @@ void saveCal() {
   dirty = false;
   portEXIT_CRITICAL(&calMux);
 
-  prefs.begin("moveo", false);
+  prefs.begin(NVS_NS, false);
   prefs.putBytes("cal", copy, sizeof(copy));
   prefs.putBytes("motion", motionCopy, sizeof(motionCopy));
   prefs.end();

@@ -37,10 +37,10 @@ const int SERVO_MAX = 2300;
    If none is saved, or it can't connect within WIFI_CONNECT_TIMEOUT_MS, it
    starts its own access point instead (http://192.168.4.1). */
 #ifndef APSSID
-  #define APSSID "moveo"
-  #define APPSK  "moveo_1234"
+  #define APSSID "movens"
+  #define APPSK  "movens_1234"
 #endif
-#define WIFI_HOSTNAME           "moveo"  // also mDNS: http://moveo.local
+#define WIFI_HOSTNAME           "movens"  // also mDNS: http://movens.local
 #define WIFI_CONNECT_TIMEOUT_MS 15000
 
 /* ── Arm geometry for kinematics (mm) ──

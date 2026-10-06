@@ -2,7 +2,7 @@
 
 /* ─────────────────────────────────────────────
    Forward / inverse kinematics  (pure math, no Arduino deps)
-   Geometry and joint conventions: see moveo_config.h.
+   Geometry and joint conventions: see movens_config.h.
    Angles in degrees, lengths in mm.
 
    Tool approach vector a = (cos p cos y, cos p sin y, sin p)

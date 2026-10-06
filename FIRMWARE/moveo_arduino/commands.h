@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-#include "moveo_config.h"
+#include "movens_config.h"
 
 /* ─────────────────────────────────────────────
    FreeRTOS Command Queue

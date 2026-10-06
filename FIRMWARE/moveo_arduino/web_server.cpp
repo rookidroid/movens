@@ -13,7 +13,7 @@
 #include "calibration.h"
 #include "commands.h"
 #include "connectivity.h"
-#include "moveo_config.h"
+#include "movens_config.h"
 #include "joints.h"
 #include "json_util.h"
 #include "kinematics.h"

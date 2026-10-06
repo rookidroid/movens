@@ -3,7 +3,7 @@
 #include <ESP32Servo.h>
 
 #include "calibration.h"
-#include "moveo_config.h"
+#include "movens_config.h"
 
 static FastAccelStepperEngine engine = FastAccelStepperEngine();
 

@@ -5,7 +5,7 @@
 #include <WiFi.h>
 #include <esp_wifi.h>  // for esp_wifi_set_ps() / WIFI_PS_NONE
 
-#include "moveo_config.h"
+#include "movens_config.h"
 
 static const char *apSsid = APSSID;
 static const char *apPass = APPSK;
