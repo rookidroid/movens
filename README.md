@@ -38,7 +38,7 @@ Movens is a heavily modified fork of the [BCN3D Moveo](https://github.com/BCN3D/
 
 ### Wiring
 
-Default pins, set in [`movens_config.h`](FIRMWARE/movens/movens_config.h):
+Default pins, set in [`movens_config.h`](firmware/movens/movens_config.h):
 
 | Joint | Role | STEP | DIR |
 |---|---|---|---|
@@ -53,7 +53,7 @@ Stepper drivers need their own motor supply. Tie the drivers' logic ground to th
 
 ## Firmware
 
-The firmware lives in [`FIRMWARE/movens`](FIRMWARE/movens) and builds with the Arduino IDE or `arduino-cli`.
+The firmware lives in [`firmware/movens`](firmware/movens) and builds with the Arduino IDE or `arduino-cli`.
 
 ### Requirements
 
@@ -67,8 +67,8 @@ The firmware lives in [`FIRMWARE/movens`](FIRMWARE/movens) and builds with the A
 
 ### Configure and flash
 
-1. Open `FIRMWARE/movens/movens.ino`.
-2. Review [`movens_config.h`](FIRMWARE/movens/movens_config.h): pins, stepper speed and acceleration, gripper servo range, and the access-point name and password. **Change the default AP password (`movens_1234`).**
+1. Open `firmware/movens/movens.ino`.
+2. Review [`movens_config.h`](firmware/movens/movens_config.h): pins, stepper speed and acceleration, gripper servo range, and the access-point name and password. **Change the default AP password (`movens_1234`).**
 3. Measure your arm and update the `KIN_*` link lengths in the same file. They're used by the Cartesian control.
 4. Select your ESP32 board and port, then upload.
 
@@ -101,7 +101,7 @@ Once the arm is on your WiFi network, later updates can go over the air. Pick th
    4. Verify by commanding a few angles.
 5. **Move the arm** from the **Control** page, by joint or in Cartesian space. Cartesian control needs all five joints calibrated.
 
-Joint angle conventions, like where zero is and which way is positive, must match those described in [`movens_config.h`](FIRMWARE/movens/movens_config.h) for the kinematics to be correct.
+Joint angle conventions, like where zero is and which way is positive, must match those described in [`movens_config.h`](firmware/movens/movens_config.h) for the kinematics to be correct.
 
 ## REST API
 
@@ -134,17 +134,13 @@ curl -X POST http://movens.local/movepose -d '{"z":20,"pitch":0,"rel":1}'
 
 | Path | Contents |
 |---|---|
-| [`FIRMWARE/movens`](FIRMWARE/movens) | Movens ESP32 firmware and web UI |
-| [`cad`](cad) | Movens parts: new and modified designs (STEP / STL / 3MF) and the Fusion 360 model |
-| [`CAD files/movens.f3d`](CAD%20files) | Fusion 360 assembly |
-| [`CAD files/uno box`](CAD%20files/uno%20box) | Controller enclosure from an earlier Arduino Uno build |
+| [`firmware/movens`](firmware/movens) | Movens ESP32 firmware and web UI |
+| [`cad`](cad) | Movens parts: new and modified designs (STEP / STL / 3MF) and the Fusion 360 assembly |
 | [`logo`](logo) | Movens logo, icon and favicon (SVG, light and dark) |
-| [`CAD files/Moveo`](CAD%20files/Moveo) | Original BCN3D Moveo SolidWorks parts and assemblies |
-| [`FIRMWARE/Marlin_BCN3D_Moveo`](FIRMWARE/Marlin_BCN3D_Moveo) | Original BCN3D Moveo Marlin firmware (not used by Movens) |
-| [`BOM`](BOM) | Original BCN3D Moveo bill of materials |
-| [`USER MANUAL`](USER%20MANUAL) | Original BCN3D Moveo user and assembly manual |
+| [`archive/moveo`](archive/moveo) | Original BCN3D Moveo files: SolidWorks CAD, Marlin firmware, BOM and user manual (not used by Movens) |
+| [`archive/legacy`](archive/legacy) | Earlier Movens iterations, kept for reference |
 
-The original Moveo manual is still the best guide to printing and assembling the shared structural parts.
+The original [Moveo manual](archive/moveo/manual) is still the best guide to printing and assembling the shared structural parts.
 
 ## Credits
 
