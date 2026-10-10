@@ -59,9 +59,14 @@ button{font:inherit;color:inherit;cursor:pointer}
   min-height:56px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--line-2)}
 .brand{display:flex;align-items:center;gap:10px}
 .brand-logo{width:32px;height:32px;flex-shrink:0}
-.brand-logo .bl-tile{fill:var(--accent)}
+.brand-logo .bl-g0,.brand-logo .bl-g1{stop-color:var(--accent)}
+@supports (color:color-mix(in srgb,red,blue)){
+  .brand-logo .bl-g0{stop-color:color-mix(in srgb,var(--accent),#fff 25%)}
+  .brand-logo .bl-g1{stop-color:color-mix(in srgb,var(--accent),#000 18%)}
+}
 .brand-logo .bl-ink{fill:none;stroke:var(--accent-ink);stroke-linecap:round;stroke-linejoin:round}
-.brand-logo .bl-joint{fill:var(--accent);stroke:var(--accent-ink);stroke-width:2.5}
+.brand-logo .bl-dim{stroke-opacity:.5}
+.brand-logo .bl-pin{fill:var(--accent)}
 .brand-text{display:flex;flex-direction:column;line-height:1}
 .brand-mark{font:700 17px/1 var(--mono);letter-spacing:.3em}
 .brand-sub{margin-top:4px;font-size:9.5px;font-weight:600;letter-spacing:.16em;color:var(--ink-3)}

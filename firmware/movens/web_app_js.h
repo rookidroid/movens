@@ -38,10 +38,11 @@ function setPref(key, v){
   $('appbar').innerHTML = `
     <div class="brand">
       <svg class="brand-logo" viewBox="0 0 64 64" aria-hidden="true">
-        <rect x="2" y="2" width="60" height="60" rx="12" class="bl-tile"/>
-        <path d="M12 52H36M17 52L19 46H29L31 52M41 31H55M41 31V38L44 41M55 31V38L52 41" class="bl-ink" stroke-width="3.5"/>
-        <path d="M24 46V38L34 18L48 24V30" class="bl-ink" stroke-width="5"/>
-        <circle cx="24" cy="38" r="3.5" class="bl-joint"/><circle cx="34" cy="18" r="3.5" class="bl-joint"/><circle cx="48" cy="24" r="3" class="bl-joint"/>
+        <defs><linearGradient id="bl-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="bl-g0"/><stop offset="1" class="bl-g1"/></linearGradient></defs>
+        <path d="M14 2H62V50L50 62H2V14Z" fill="url(#bl-grad)"/>
+        <path d="M17 19L32 37L47 19" class="bl-ink bl-dim" stroke-width="8"/>
+        <path d="M17 46V19M47 46V19" class="bl-ink" stroke-width="8"/>
+        <circle cx="17" cy="19" r="2" class="bl-pin"/><circle cx="47" cy="19" r="2" class="bl-pin"/><circle cx="32" cy="37" r="2" class="bl-pin"/>
       </svg>
       <div class="brand-text"><span class="brand-mark">MOVENS</span><span class="brand-sub">5-AXIS ARM CONTROLLER</span></div>
     </div>

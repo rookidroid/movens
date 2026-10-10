@@ -1,15 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 258 64" width="516" height="128">
   <title>Movens</title>
-  <rect x="2" y="2" width="60" height="60" rx="12" fill="#2ec5d8"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#62d4e2"/>
+      <stop offset="1" stop-color="#26a2b1"/>
+    </linearGradient>
+  </defs>
+  <path d="M14 2H62V50L50 62H2V14Z" fill="url(#g)"/>
   <g fill="none" stroke="#03161a" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M12 52H36M17 52L19 46H29L31 52" stroke-width="3.5"/>
-    <path d="M24 46V38L34 18L48 24V30" stroke-width="5"/>
-    <path d="M41 31H55M41 31V38L44 41M55 31V38L52 41" stroke-width="3.5"/>
+    <path d="M17 19L32 37L47 19" stroke-width="8" stroke-opacity=".45"/>
+    <path d="M17 46V19M47 46V19" stroke-width="8"/>
   </g>
-  <g fill="#2ec5d8" stroke="#03161a" stroke-width="2.5">
-    <circle cx="24" cy="38" r="3.5"/>
-    <circle cx="34" cy="18" r="3.5"/>
-    <circle cx="48" cy="24" r="3"/>
+  <g fill="#2ec5d8">
+    <circle cx="17" cy="19" r="2"/>
+    <circle cx="47" cy="19" r="2"/>
+    <circle cx="32" cy="37" r="2"/>
   </g>
   <g fill="none" stroke="#d9dee2" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
     <path d="M84 44V20L93 34L102 20V44"/>
