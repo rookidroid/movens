@@ -35,7 +35,7 @@ static const char NETWORK_HTML[] PROGMEM = R"rawhtml(
         <span class="k">Signal</span><span class="v" id="w-rssi">—</span>
       </div>
       <div class="notice" id="w-fallback" hidden>
-        Couldn't join <b id="w-saved"></b> at power-on, so the robot started its own access point.
+        Couldn't join <b id="w-saved"></b> at power-on<span id="w-why"></span>, so the robot started its own access point.
         Check the network name and password, then save again.
       </div>
       <p class="hint">At power-on the robot joins the saved network. If none is saved, or it can't connect, it
@@ -69,7 +69,7 @@ static const char NETWORK_HTML[] PROGMEM = R"rawhtml(
         <button type="button" class="btn primary" id="btnSave">Save &amp; restart</button>
       </div>
       <div class="notice" id="w-next" hidden></div>
-      <p class="hint">Saving stops the motors and restarts the robot. Once it has joined your network, connect
+      <p class="hint">The robot only joins 2.4 GHz networks. Saving stops the motors and restarts it. Once it has joined your network, connect
         this device to the same network and open <b id="w-url">http://movens.local</b> or the IP address your
         router assigned. If it can't join, reconnect to the <b class="w-ap">movens</b> access point.</p>
     </div>
@@ -103,6 +103,7 @@ function renderWifi(d){
   $('w-badge').className   = 'badge ' + (sta ? (d.connected ? 'ok' : 'warn') : '');
   $('w-fallback').hidden  = sta || !d.saved;
   $('w-saved').textContent = d.saved;
+  $('w-why').textContent  = d.error ? `: ${d.error}` : '';
   $('w-url').textContent  = 'http://' + d.host;
   AP = d.ap;
   document.querySelectorAll('.w-ap').forEach(e => e.textContent = AP);

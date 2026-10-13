@@ -17,6 +17,10 @@ void handleNetwork();
 // true when joined to the saved network, false when running the access point
 bool wifiStationMode();
 
+// Why the saved network couldn't be joined at boot ("" if it wasn't tried or
+// it worked)
+String wifiJoinError();
+
 // Network saved in NVS ("" if none)
 String wifiSavedSsid();
 

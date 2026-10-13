@@ -8,14 +8,28 @@
 #define J1_DIR  13
 #define J1_STEP 12
 
-#define J2_DIR  14
-#define J2_STEP 27
+// The classic ESP32 pins for J2 STEP, J3 and J4 don't work on the ESP32-S3:
+// GPIO 25 doesn't exist there and 26-33 belong to the flash / PSRAM, so
+// driving them crashes the chip at boot.
+#if CONFIG_IDF_TARGET_ESP32S3
+  #define J2_DIR  14
+  #define J2_STEP 11
 
-#define J3_DIR  26
-#define J3_STEP 25
+  #define J3_DIR  10
+  #define J3_STEP 9
 
-#define J4_DIR  33
-#define J4_STEP 32
+  #define J4_DIR  6
+  #define J4_STEP 5
+#else
+  #define J2_DIR  14
+  #define J2_STEP 27
+
+  #define J3_DIR  26
+  #define J3_STEP 25
+
+  #define J4_DIR  33
+  #define J4_STEP 32
+#endif
 
 #define J5_DIR  15
 #define J5_STEP 2

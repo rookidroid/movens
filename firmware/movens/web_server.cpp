@@ -402,10 +402,12 @@ static void handleMovePose(AsyncWebServerRequest* request,
 //   mode: "sta" (joined the saved network) | "ap" (own access point)
 //   saved: network joined at boot ("" = none), ssid: network in use now
 //   rssi: dBm (null in AP mode), host: mDNS name, ap: access point name
+//   error: why the saved network couldn't be joined at boot ("" = no failure)
 static void handleWifiGet(AsyncWebServerRequest* request) {
   bool sta = wifiStationMode();
   String json = "{\"mode\":\"" + String(sta ? "sta" : "ap") + "\"";
   json += ",\"saved\":"     + jsonQuote(wifiSavedSsid());
+  json += ",\"error\":"     + jsonQuote(wifiJoinError());
   json += ",\"ssid\":"      + jsonQuote(sta ? WiFi.SSID() : String(APSSID));
   json += ",\"connected\":" + String(!sta || WiFi.status() == WL_CONNECTED ? "true" : "false");
   json += ",\"ip\":\""       + (sta ? WiFi.localIP() : WiFi.softAPIP()).toString() + "\"";

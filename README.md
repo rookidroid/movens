@@ -49,6 +49,8 @@ Default pins, set in [`movens_config.h`](firmware/movens/movens_config.h):
 | J5 | Wrist pitch | 2 | 15 |
 | Gripper | Servo signal | 4 | |
 
+On an ESP32-S3, GPIO 25–33 are missing or reserved for the flash, so the firmware uses J2 STEP 11, J3 STEP 9 / DIR 10 and J4 STEP 5 / DIR 6 instead. The other pins are the same.
+
 Stepper drivers need their own motor supply. Tie the drivers' logic ground to the ESP32 ground.
 
 ## Firmware
@@ -60,7 +62,6 @@ The firmware lives in [`firmware/movens`](firmware/movens) and builds with the A
 - [Arduino-ESP32 core](https://github.com/espressif/arduino-esp32) (Boards Manager: *esp32 by Espressif Systems*)
 - Libraries, from the Library Manager:
   - [FastAccelStepper](https://github.com/gin66/FastAccelStepper)
-  - [ESP32Servo](https://github.com/madhephaestus/ESP32Servo)
   - [ESPAsyncWebServer](https://github.com/ESP32Async/ESPAsyncWebServer) and [AsyncTCP](https://github.com/ESP32Async/AsyncTCP)
 
 `WiFi`, `Preferences` and `ArduinoOTA` come with the ESP32 core.

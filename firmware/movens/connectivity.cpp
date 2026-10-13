@@ -13,6 +13,9 @@ static const char *apPass = APPSK;
 static bool     staMode   = false;
 static uint32_t restartAt = 0;  // millis() of a scheduled restart, 0 = none
 
+static bool             joinFailed     = false;  // the saved network couldn't be joined at boot
+static volatile uint8_t joinFailReason = 0;      // wifi_err_reason_t of its last attempt, 0 = none seen
+
 /* ── Saved station credentials (NVS namespace "wifi") ── */
 static void loadCredentials(String& ssid, String& pass) {
   Preferences p;
@@ -45,6 +48,27 @@ bool wifiSaveCredentials(const String& ssid, const String& pass) {
 
 bool wifiStationMode() { return staMode; }
 
+String wifiJoinError() {
+  if (!joinFailed) return "";
+  switch (joinFailReason) {
+    case 0:
+      return "no reply from the network";
+    case WIFI_REASON_NO_AP_FOUND:
+    case WIFI_REASON_NO_AP_FOUND_IN_RSSI_THRESHOLD:
+      return "network not found (the robot only sees 2.4 GHz WiFi)";
+    case WIFI_REASON_NO_AP_FOUND_W_COMPATIBLE_SECURITY:
+    case WIFI_REASON_NO_AP_FOUND_IN_AUTHMODE_THRESHOLD:
+      return "the network's security mode isn't supported";
+    case WIFI_REASON_AUTH_FAIL:
+    case WIFI_REASON_MIC_FAILURE:
+    case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT:
+    case WIFI_REASON_HANDSHAKE_TIMEOUT:
+      return "the password was rejected";
+    default:
+      return "WiFi error " + String(joinFailReason);
+  }
+}
+
 void scheduleRestart(uint32_t delayMs) {
   restartAt = millis() + delayMs;
   if (restartAt == 0) restartAt = 1;
@@ -64,7 +88,25 @@ static bool joinNetwork(const String& ssid, const String& pass) {
   Serial.printf("Joining WiFi \"%s\"", ssid.c_str());
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
-  WiFi.begin(ssid.c_str(), pass.c_str());
+
+  // Remember why the driver gave up, for the Network page
+  joinFailReason = 0;
+  wifi_event_id_t watch = WiFi.onEvent(
+    [](arduino_event_id_t, arduino_event_info_t info) {
+      joinFailReason = info.wifi_sta_disconnected.reason;
+    },
+    ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+
+  // WiFi.begin() doesn't set the WPA3 key-derivation method. Store the config
+  // without connecting, allow both methods so routers that require
+  // hash-to-element accept the join, then connect.
+  WiFi.begin(ssid.c_str(), pass.c_str(), 0, nullptr, false);
+  wifi_config_t conf;
+  if (esp_wifi_get_config(WIFI_IF_STA, &conf) == ESP_OK) {
+    conf.sta.sae_pwe_h2e = WPA3_SAE_PWE_BOTH;
+    esp_wifi_set_config(WIFI_IF_STA, &conf);
+  }
+  esp_wifi_connect();
   radioFullPower();
 
   uint32_t start = millis();
@@ -73,6 +115,7 @@ static bool joinNetwork(const String& ssid, const String& pass) {
     Serial.print('.');
   }
   Serial.println();
+  WiFi.removeEvent(watch);
   return WiFi.status() == WL_CONNECTED;
 }
 
@@ -97,7 +140,8 @@ void setupWiFi() {
   }
 
   if (ssid.length()) {
-    Serial.println("WiFi connection failed — starting access point");
+    joinFailed = true;
+    Serial.println("WiFi connection failed: " + wifiJoinError() + " — starting access point");
     WiFi.disconnect(true);
   }
   startAccessPoint();
