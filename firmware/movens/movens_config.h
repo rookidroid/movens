@@ -5,22 +5,30 @@
    ───────────────────────────────────────────── */
 
 /* ── Joint stepper pins ── */
-#define J1_DIR  13
-#define J1_STEP 12
+
 
 // The classic ESP32 pins for J2 STEP, J3 and J4 don't work on the ESP32-S3:
 // GPIO 25 doesn't exist there and 26-33 belong to the flash / PSRAM, so
 // driving them crashes the chip at boot.
 #if CONFIG_IDF_TARGET_ESP32S3
-  #define J2_DIR  14
-  #define J2_STEP 11
+  #define J1_DIR  15
+  #define J1_STEP 16
 
-  #define J3_DIR  10
-  #define J3_STEP 9
+  #define J2_DIR  5
+  #define J2_STEP 6
 
-  #define J4_DIR  6
-  #define J4_STEP 5
+  #define J3_DIR  47
+  #define J3_STEP 48
+
+  #define J4_DIR  10
+  #define J4_STEP 11
+
+  #define J5_DIR  41
+  #define J5_STEP 42
 #else
+  #define J1_DIR  13
+  #define J1_STEP 12
+
   #define J2_DIR  14
   #define J2_STEP 27
 
@@ -29,10 +37,12 @@
 
   #define J4_DIR  33
   #define J4_STEP 32
+
+  #define J5_DIR  15
+  #define J5_STEP 2
 #endif
 
-#define J5_DIR  15
-#define J5_STEP 2
+
 
 #define NUM_STEPPERS 5  // joints are numbered 1..NUM_STEPPERS
 
@@ -41,7 +51,7 @@
 #define STEPPER_ACCEL    800   // steps/s²
 
 /* ── Hand servo ── */
-#define servoPin 4
+#define servoPin 1
 const int SERVO_MID = 1500;
 const int SERVO_MIN = 700;
 const int SERVO_MAX = 2300;
